@@ -586,3 +586,44 @@ class TestEventRoutes:
             content_type="application/x-www-form-urlencoded",
         )
         assert response.status_code == 201
+
+    def test_create_event_with_file_upload(self, admin_client, department):
+        """Test creating event with file upload."""
+        from io import BytesIO
+        start_time = (datetime.utcnow() + timedelta(days=2)).isoformat()
+        end_time = (datetime.utcnow() + timedelta(days=2, hours=2)).isoformat()
+        
+        # Create a fake image file
+        data = {
+            "title": "Event with File",
+            "start_time": start_time,
+            "end_time": end_time,
+            "department_id": str(department.id),
+            "flier": (BytesIO(b"fake image content"), "test_flier.png"),
+        }
+        
+        response = admin_client.post(
+            "/api/events",
+            data=data,
+            content_type="multipart/form-data",
+        )
+        assert response.status_code == 201
+        resp_data = response.get_json()
+        # Flier path should be set when file is uploaded
+        assert resp_data["event"]["flier_path"] is not None
+
+    def test_register_event_email_failure(self, authenticated_client, event, monkeypatch):
+        """Test event registration succeeds even if email fails."""
+        import app.email
+        
+        # Mock send_registration_confirmation to raise exception
+        def mock_send_email(*args, **kwargs):
+            raise Exception("Email service unavailable")
+        
+        monkeypatch.setattr(app.email, "send_registration_confirmation", mock_send_email)
+        
+        response = authenticated_client.post(f"/api/events/{event.id}/register")
+        # Registration should succeed despite email failure
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["message"] == "Successfully registered for event"
