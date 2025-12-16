@@ -1,13 +1,17 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template, make_response
 from flask_login import current_user, login_required
+from datetime import datetime
+import csv
+import io
 
 from app import db
-from app.models import Attendance, Event
+from app.models import Attendance, Event, User, Department
 
 attendance_bp = Blueprint("attendance", __name__)
 
 
 @attendance_bp.route("/check-in", methods=["POST"])
+@attendance_bp.route("", methods=["POST"])  # REST-compliant alias
 @login_required
 def check_in():
     """Check in a user to an event."""
@@ -24,8 +28,9 @@ def check_in():
     if not event.is_active:
         return jsonify({"error": "Event is not active"}), 400
 
-    # Check if already checked in
+    # Check if attendance record exists
     existing = Attendance.query.filter_by(event_id=event.id, user_id=current_user.id).first()
+    
     if existing:
         return jsonify({"error": "Already checked in to this event"}), 409
 
@@ -35,11 +40,11 @@ def check_in():
         if current_count >= event.max_capacity:
             return jsonify({"error": "Event is at full capacity"}), 400
 
-    # Create attendance record
+    # Create attendance record with check-in
     attendance = Attendance(
         event_id=event.id,
         user_id=current_user.id,
-        check_in_method=data.get("check_in_method", "qr_code"),
+        check_in_method=data.get("check_in_method", "qr_code")
     )
 
     db.session.add(attendance)
@@ -122,6 +127,7 @@ def delete_attendance(attendance_id):
 
 
 @attendance_bp.route("/bulk-check-in", methods=["POST"])
+@attendance_bp.route("/bulk", methods=["POST"])  # REST-compliant alias
 @login_required
 def bulk_check_in():
     """Check in multiple users to an event (admin only)."""
@@ -172,3 +178,110 @@ def bulk_check_in():
         ),
         200,
     )
+
+
+@attendance_bp.route("/check-in-form", methods=["POST"])
+def check_in_form():
+    """Process check-in form submission (public endpoint for QR code check-ins)."""
+    data = request.get_json()
+
+    required_fields = ['event_id', 'full_name', 'email', 'department_id']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({"error": f"{field.replace('_', ' ').title()} is required"}), 400
+
+    event = db.session.get(Event, data['event_id'])
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    # Check if event is active
+    if not event.is_active:
+        return jsonify({"error": "Event is not active"}), 400
+
+    # Check if already checked in with this email
+    # For form submissions, we store data differently
+    # We'll create an attendance record and store form data in a separate table
+    # For now, we'll use the existing Attendance model
+    
+    # Try to find user by email
+    user = User.query.filter_by(email=data['email']).first()
+    
+    if user:
+        # Existing user - check if already checked in
+        existing = Attendance.query.filter_by(event_id=event.id, user_id=user.id).first()
+        if existing:
+            return jsonify({"error": "You have already checked in to this event"}), 409
+        
+        # Create attendance record
+        attendance = Attendance(
+            event_id=event.id,
+            user_id=user.id,
+            check_in_method='qr_form'
+        )
+    else:
+        # Guest check-in (no user account) - we'll still record it
+        # For now, we'll skip this and require users to have accounts
+        return jsonify({"error": "Please register for an account first"}), 400
+
+    db.session.add(attendance)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Check-in successful",
+        "attendance": attendance.to_dict()
+    }), 201
+
+
+@attendance_bp.route("/export/<int:event_id>", methods=["GET"])
+@login_required
+def export_attendance(event_id):
+    """Export attendance data for an event as CSV (admin only)."""
+    if current_user.role not in ["admin", "department_admin"]:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    event = db.session.get(Event, event_id)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    # Check permission
+    if current_user.role == "department_admin" and event.department_id != current_user.department_id:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # Get all attendance records for this event
+    attendances = Attendance.query.filter_by(event_id=event_id).join(User).order_by(Attendance.checked_in_at).all()
+
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow([
+        'Full Name',
+        'Email',
+        'Student ID',
+        'Department',
+        'Check-in Time',
+        'Check-in Method'
+    ])
+
+    # Write data rows
+    for attendance in attendances:
+        user = attendance.user
+        department = Department.query.get(user.department_id) if user.department_id else None
+        
+        writer.writerow([
+            f"{user.first_name} {user.last_name}",
+            user.email,
+            user.username,  # Using username as student ID
+            department.name if department else 'N/A',
+            attendance.checked_in_at.strftime('%Y-%m-%d %H:%M:%S') if attendance.checked_in_at else 'N/A',
+            attendance.check_in_method or 'N/A'
+        ])
+
+    # Prepare response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = f'attachment; filename=attendance_{event.title.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.csv'
+    
+    return response

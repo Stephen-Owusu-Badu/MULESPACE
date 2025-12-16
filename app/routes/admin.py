@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import func
@@ -7,6 +9,49 @@ from app.models import Attendance, Department, Event, User
 from app.utils import require_role
 
 admin_bp = Blueprint("admin", __name__)
+
+
+@admin_bp.route("/statistics", methods=["GET"])
+@login_required
+@require_role(["admin", "department_admin"])
+def get_statistics():
+    """Get admin dashboard statistics."""
+    today = datetime.utcnow().date()
+    
+    if current_user.role == "admin":
+        # Global stats
+        total_events = Event.query.filter_by(is_active=True).count()
+        active_users = User.query.filter_by(is_active=True).count()
+        total_registrations = Attendance.query.count()
+        checkins_today = Attendance.query.filter(
+            func.date(Attendance.checked_in_at) == today
+        ).count()
+    else:
+        # Department-specific stats
+        dept_id = current_user.department_id
+        total_events = Event.query.filter_by(
+            department_id=dept_id,
+            is_active=True
+        ).count()
+        active_users = User.query.filter_by(
+            department_id=dept_id,
+            is_active=True
+        ).count()
+        event_ids = [e.id for e in Event.query.filter_by(department_id=dept_id).all()]
+        total_registrations = Attendance.query.filter(
+            Attendance.event_id.in_(event_ids) if event_ids else Attendance.event_id == None  # noqa: E711
+        ).count()
+        checkins_today = Attendance.query.filter(
+            Attendance.event_id.in_(event_ids) if event_ids else Attendance.event_id == None,  # noqa: E711
+            func.date(Attendance.checked_in_at) == today
+        ).count()
+    
+    return jsonify({
+        "total_events": total_events,
+        "active_users": active_users,
+        "total_registrations": total_registrations,
+        "checkins_today": checkins_today
+    }), 200
 
 
 @admin_bp.route("/dashboard", methods=["GET"])

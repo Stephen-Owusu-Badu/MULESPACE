@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Create Account</h1>
+            <p>Join MuleSpace to discover and manage campus events</p>
+        </div>
+
+        <form id="registerForm" class="auth-form">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required autocomplete="name">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Colby Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="yourname@colby.edu">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="new-password">
+                <small style="color: #666; font-size: 13px; margin-top: 4px; display: block;">
+                    At least 8 characters with uppercase, lowercase, and number
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+            </div>
+
+            <div class="form-group">
+                <label for="department">Department</label>
+                <select id="department" name="department" required>
+                    <option value="">Select your department</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="role">I am a...</label>
+                <select id="role" name="role" required>
+                    <option value="">Select your role</option>
+                    <option value="student">Student</option>
+                    <option value="faculty">Faculty</option>
+                    <option value="staff">Staff</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="/login">Sign in</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Load departments
+    fetch('/api/auth/departments')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('department');
+            data.departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept.id;
+                option.textContent = dept.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading departments:', error);
+        });
+
+    // Handle form submission
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        const departmentId = parseInt(document.getElementById('department').value);
+        const role = document.getElementById('role').value;
+
+        // Clear previous errors
+        document.querySelectorAll('.field-error').forEach(el => el.remove());
+        document.querySelectorAll('input, select').forEach(el => el.style.borderColor = '');
+
+        // Validate email
+        if (!email.endsWith('@colby.edu')) {
+            MuleSpace.showFieldError(document.getElementById('email'), 'Please use your Colby email address');
+            return;
+        }
+
+        // Validate password
+        if (!MuleSpace.validatePassword(password)) {
+            MuleSpace.showFieldError(document.getElementById('password'), 'Password must be at least 8 characters with uppercase, lowercase, and number');
+            return;
+        }
+
+        // Check passwords match
+        if (password !== confirmPassword) {
+            MuleSpace.showFieldError(document.getElementById('confirmPassword'), 'Passwords do not match');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    password: password,
+                    department_id: departmentId,
+                    role: role
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                MuleSpace.showFlash('Account created successfully! Please log in.', 'success');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+            } else {
+                MuleSpace.showFlash(data.error || 'Registration failed', 'error');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            MuleSpace.showFlash('An error occurred. Please try again.', 'error');
+        }
+    });
+</script>
+{% endblock %}

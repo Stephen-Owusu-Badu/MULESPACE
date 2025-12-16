@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1>My Profile</h1>
+        <p>Manage your account settings</p>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 80px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+        <!-- Profile Information -->
+        <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <h2 style="color: var(--primary-color); margin-bottom: 24px;">Profile Information</h2>
+            
+            <div style="margin-bottom: 24px;">
+                <div style="color: var(--text-light); font-size: 13px; margin-bottom: 4px;">Name</div>
+                <div style="font-weight: 500; font-size: 18px;">{{ current_user.first_name }} {{ current_user.last_name }}</div>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <div style="color: var(--text-light); font-size: 13px; margin-bottom: 4px;">Email</div>
+                <div style="font-weight: 500;">{{ current_user.email }}</div>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <div style="color: var(--text-light); font-size: 13px; margin-bottom: 4px;">Username</div>
+                <div style="font-weight: 500;">{{ current_user.username }}</div>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <div style="color: var(--text-light); font-size: 13px; margin-bottom: 4px;">Role</div>
+                <div style="font-weight: 500; text-transform: capitalize;">{{ current_user.role }}</div>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <div style="color: var(--text-light); font-size: 13px; margin-bottom: 4px;">Department</div>
+                <div style="font-weight: 500;">{{ current_user.department.name if current_user.department else 'N/A' }}</div>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <h2 style="color: var(--primary-color); margin-bottom: 24px;">Change Password</h2>
+            
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="oldPassword" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Update Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Activity Statistics -->
+    <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-top: 32px;">
+        <h2 style="color: var(--primary-color); margin-bottom: 24px;">Activity Statistics</h2>
+        
+        <div id="statsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px;">
+            <!-- Stats will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Change password form
+    document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const oldPassword = document.getElementById('oldPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // Clear previous errors
+        document.querySelectorAll('.field-error').forEach(el => el.remove());
+        document.querySelectorAll('input').forEach(el => el.style.borderColor = '');
+        
+        // Validate new password
+        if (!MuleSpace.validatePassword(newPassword)) {
+            MuleSpace.showFieldError(
+                document.getElementById('newPassword'),
+                'Password must be at least 8 characters with uppercase, lowercase, and number'
+            );
+            return;
+        }
+        
+        // Check passwords match
+        if (newPassword !== confirmPassword) {
+            MuleSpace.showFieldError(
+                document.getElementById('confirmPassword'),
+                'Passwords do not match'
+            );
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/auth/change-password', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    old_password: oldPassword,
+                    new_password: newPassword
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                MuleSpace.showFlash('Password changed successfully!', 'success');
+                this.reset();
+            } else {
+                MuleSpace.showFlash(data.error || 'Failed to change password', 'error');
+            }
+        } catch (error) {
+            console.error('Error changing password:', error);
+            MuleSpace.showFlash('An error occurred. Please try again.', 'error');
+        }
+    });
+    
+    // Load activity statistics
+    async function loadStatistics() {
+        const container = document.getElementById('statsContainer');
+        
+        try {
+            const response = await fetch('/api/calendar/statistics');
+            const data = await response.json();
+            
+            if (response.ok) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: var(--primary-color);">${data.total_events}</div>
+                        <div style="color: var(--text-light); margin-top: 4px;">Total Events</div>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: var(--success);">${data.upcoming_events}</div>
+                        <div style="color: var(--text-light); margin-top: 4px;">Upcoming</div>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: var(--accent-color);">${data.total_points || 0}</div>
+                        <div style="color: var(--text-light); margin-top: 4px;">Points</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+    
+    loadStatistics();
+</script>
+{% endblock %}

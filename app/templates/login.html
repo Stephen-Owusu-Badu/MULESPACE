@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Welcome Back</h1>
+            <p>Sign in to your MuleSpace account</p>
+        </div>
+        
+        <form method="POST" action="/api/auth/login" class="auth-form" id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required 
+                       placeholder="your.email@colby.edu" autocomplete="email">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Enter your password" autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                Sign In
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="/register">Sign up</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const button = e.target.querySelector('button[type="submit"]');
+    
+    button.disabled = true;
+    button.textContent = 'Signing in...';
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            window.location.href = '/events';
+        } else {
+            alert(data.error || 'Login failed. Please check your credentials.');
+            button.disabled = false;
+            button.textContent = 'Sign In';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+        button.disabled = false;
+        button.textContent = 'Sign In';
+    }
+});
+</script>
+{% endblock %}

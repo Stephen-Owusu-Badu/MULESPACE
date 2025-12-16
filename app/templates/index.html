@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1>Welcome to MuleSpace</h1>
+        <p class="hero-subtitle">Discover and engage with campus events at Colby College</p>
+        <div class="hero-buttons">
+            <a href="/events" class="btn btn-primary btn-lg">Browse Events</a>
+            <a href="/calendar" class="btn btn-secondary btn-lg">View Calendar</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <section class="features">
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">Calendar</div>
+                <h3>Event Calendar</h3>
+                <p>View all campus events in one place. Stay informed about what's happening across departments.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">Check-In</div>
+                <h3>Easy Check-In</h3>
+                <p>Quick QR code-based attendance tracking. No more paper sign-up sheets.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">Notify</div>
+                <h3>Smart Notifications</h3>
+                <p>Get notified about events from your department and areas of interest.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">Analytics</div>
+                <h3>Analytics</h3>
+                <p>Track attendance and engagement. Make data-driven decisions for event planning.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="upcoming-section">
+        <div class="section-header">
+            <h2>Upcoming Events</h2>
+            <a href="/events" class="link-view-all">View All →</a>
+        </div>
+        <div id="upcomingEvents" class="event-grid">
+            <div class="loading">Loading events...</div>
+        </div>
+    </section>
+</div>
+
+<script>
+// Load upcoming events
+fetch('/api/calendar/upcoming?days=14')
+    .then(response => response.json())
+    .then(data => {
+        const container = document.getElementById('upcomingEvents');
+        if (data.events && data.events.length > 0) {
+            // Limit to first 6 events
+            const eventsToShow = data.events.slice(0, 6);
+            container.innerHTML = eventsToShow.map(event => {
+                // Construct full datetime from date and time fields
+                const eventDateTime = new Date(event.date + 'T' + event.start_time);
+                
+                return `
+                <div class="event-card-mini">
+                    <div class="event-date-badge">
+                        <div class="event-month">${eventDateTime.toLocaleDateString('en-US', {month: 'short'})}</div>
+                        <div class="event-day">${eventDateTime.getDate()}</div>
+                    </div>
+                    <div class="event-details">
+                        <h4>${event.title}</h4>
+                        <p class="event-dept">${event.department_name || 'N/A'}</p>
+                        <p class="event-time">${eventDateTime.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}</p>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        } else {
+            container.innerHTML = '<p class="no-events">No upcoming events</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading events:', error);
+        document.getElementById('upcomingEvents').innerHTML = '<p class="error">Unable to load events</p>';
+    });
+</script>
+{% endblock %}

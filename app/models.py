@@ -112,6 +112,7 @@ class Event(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey("departments.id"), nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     qr_code_path = db.Column(db.String(255), nullable=True)
+    flier_path = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -128,16 +129,22 @@ class Event(db.Model):
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat(),
+            "date": self.start_time.date().isoformat(),
+            "start_time": self.start_time.time().isoformat(),
+            "end_time": self.end_time.time().isoformat(),
             "max_capacity": self.max_capacity,
             "department_id": self.department_id,
             "department_name": self.department.name if self.department else None,
             "created_by": self.created_by,
             "creator_name": f"{self.creator.first_name} {self.creator.last_name}",
             "qr_code_path": self.qr_code_path,
+            "flier_path": self.flier_path,
             "is_active": self.is_active,
+            "registered_count": self.attendees.count(),
             "attendance_count": self.attendees.count(),
+            "registration_required": True,
+            "points": 0,
+            "tags": None,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }

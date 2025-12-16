@@ -6,13 +6,13 @@ from flask import jsonify
 from flask_login import current_user
 
 
-def generate_qr_code(event_id):
-    """Generate QR code for event check-in."""
+def generate_qr_code(event_id, base_url="http://127.0.0.1:5001"):
+    """Generate QR code for event check-in form."""
     qr_dir = os.path.join("app", "static", "qrcodes")
     os.makedirs(qr_dir, exist_ok=True)
 
-    # Generate QR code data (URL to check-in endpoint)
-    qr_data = f"https://mulespace.herokuapp.com/api/attendance/check-in?event_id={event_id}"
+    # Generate QR code data (URL to check-in form)
+    qr_data = f"{base_url}/check-in?event={event_id}"
 
     # Create QR code
     qr = qrcode.QRCode(version=1, box_size=10, border=5)

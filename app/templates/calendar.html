@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1>My Calendar</h1>
+        <p>View and manage your registered events</p>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 80px;">
+    <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color: var(--primary-color);">Upcoming Events</h2>
+            <div style="display: flex; gap: 12px;">
+                <button id="filterAll" class="btn btn-secondary">All</button>
+                <button id="filterWeek" class="btn btn-secondary">This Week</button>
+                <button id="filterMonth" class="btn btn-primary">This Month</button>
+            </div>
+        </div>
+        
+        <div id="calendarEvents"></div>
+    </div>
+
+    <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+        <h2 style="color: var(--primary-color); margin-bottom: 20px;">Event Statistics</h2>
+        <div id="statsContainer"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentFilter = 'month';
+    let allEvents = [];
+
+    async function loadCalendarEvents() {
+        const container = document.getElementById('calendarEvents');
+        MuleSpace.showLoading(container, 'Loading your events...');
+
+        try {
+            const response = await fetch('/api/calendar/events');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load calendar');
+            }
+
+            allEvents = data.events || [];
+            renderEvents();
+            loadStatistics();
+
+        } catch (error) {
+            console.error('Error loading calendar:', error);
+            MuleSpace.showError(container, error.message || 'Failed to load your calendar');
+        }
+    }
+
+    function renderEvents() {
+        const container = document.getElementById('calendarEvents');
+        
+        let filteredEvents = allEvents;
+        const now = new Date();
+        
+        if (currentFilter === 'week') {
+            const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            filteredEvents = allEvents.filter(event => {
+                const eventDate = new Date(event.date);
+                return eventDate >= now && eventDate <= weekFromNow;
+            });
+        } else if (currentFilter === 'month') {
+            const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            filteredEvents = allEvents.filter(event => {
+                const eventDate = new Date(event.date);
+                return eventDate >= now && eventDate <= monthFromNow;
+            });
+        }
+
+        if (filteredEvents.length === 0) {
+            container.innerHTML = '<div class="no-events"><p>No upcoming events in your calendar</p></div>';
+            return;
+        }
+
+        // Group events by date
+        const groupedEvents = {};
+        filteredEvents.forEach(event => {
+            const date = event.date;
+            if (!groupedEvents[date]) {
+                groupedEvents[date] = [];
+            }
+            groupedEvents[date].push(event);
+        });
+
+        // Sort dates
+        const sortedDates = Object.keys(groupedEvents).sort();
+
+        let html = '';
+        sortedDates.forEach(date => {
+            const dateObj = new Date(date);
+            const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            
+            html += `
+                <div style="margin-bottom: 32px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">
+                        <h3 style="color: var(--primary-color); margin: 0;">${dayName}</h3>
+                        <span style="color: var(--text-light);">${MuleSpace.formatDate(date)}</span>
+                    </div>
+                    
+                    <div style="display: grid; gap: 16px;">
+            `;
+
+            groupedEvents[date].forEach(event => {
+                html += `
+                    <div style="display: flex; gap: 16px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-light); transition: all 0.2s;">
+                        <div style="min-width: 80px;">
+                            <div style="font-weight: 600; color: var(--primary-color);">${MuleSpace.formatTime(event.start_time)}</div>
+                            <div style="font-size: 13px; color: var(--text-light);">${MuleSpace.formatTime(event.end_time)}</div>
+                        </div>
+                        
+                        <div style="flex: 1;">
+                            <h4 style="margin-bottom: 4px;">
+                                <a href="/events/${event.id}" style="color: var(--text-dark); text-decoration: none;">
+                                    ${event.title}
+                                </a>
+                            </h4>
+                            <div style="color: var(--text-light); font-size: 14px; margin-bottom: 4px;">${event.location}</div>
+                            <div style="color: var(--text-light); font-size: 14px;">${event.department_name}</div>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center;">
+                            <button onclick="removeFromCalendar(${event.id})" class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    async function removeFromCalendar(eventId) {
+        if (!confirm('Remove this event from your calendar?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/calendar/events/${eventId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                MuleSpace.showFlash('Event removed from calendar', 'success');
+                allEvents = allEvents.filter(e => e.id !== eventId);
+                renderEvents();
+                loadStatistics();
+            } else {
+                throw new Error(data.error || 'Failed to remove event');
+            }
+        } catch (error) {
+            console.error('Error removing event:', error);
+            MuleSpace.showFlash(error.message, 'error');
+        }
+    }
+
+    async function loadStatistics() {
+        const container = document.getElementById('statsContainer');
+        
+        try {
+            const response = await fetch('/api/calendar/statistics');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load statistics');
+            }
+
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px;">
+                    <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: var(--primary-color);">${data.total_events}</div>
+                        <div style="color: var(--text-light); margin-top: 4px;">Total Events</div>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: var(--success);">${data.upcoming_events}</div>
+                        <div style="color: var(--text-light); margin-top: 4px;">Upcoming</div>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="font-size: 32px; font-weight: 700; color: var(--accent-color);">${data.total_points || 0}</div>
+                        <div style="color: var(--text-light); margin-top: 4px;">Points Earned</div>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+
+    // Filter buttons
+    document.getElementById('filterAll').addEventListener('click', function() {
+        currentFilter = 'all';
+        renderEvents();
+        document.querySelectorAll('[id^="filter"]').forEach(btn => btn.className = 'btn btn-secondary');
+        this.className = 'btn btn-primary';
+    });
+
+    document.getElementById('filterWeek').addEventListener('click', function() {
+        currentFilter = 'week';
+        renderEvents();
+        document.querySelectorAll('[id^="filter"]').forEach(btn => btn.className = 'btn btn-secondary');
+        this.className = 'btn btn-primary';
+    });
+
+    document.getElementById('filterMonth').addEventListener('click', function() {
+        currentFilter = 'month';
+        renderEvents();
+        document.querySelectorAll('[id^="filter"]').forEach(btn => btn.className = 'btn btn-secondary');
+        this.className = 'btn btn-primary';
+    });
+
+    // Load events on page load
+    loadCalendarEvents();
+</script>
+{% endblock %}

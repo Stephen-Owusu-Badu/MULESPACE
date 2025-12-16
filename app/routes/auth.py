@@ -13,7 +13,7 @@ def register():
     data = request.get_json()
 
     # Validation
-    required_fields = ["email", "username", "password", "first_name", "last_name"]
+    required_fields = ["email", "password", "name"]
     for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"Missing required field: {field}"}), 400
@@ -22,15 +22,27 @@ def register():
     if User.query.filter_by(email=data["email"]).first():
         return jsonify({"error": "Email already registered"}), 409
 
-    if User.query.filter_by(username=data["username"]).first():
-        return jsonify({"error": "Username already taken"}), 409
+    # Split name into first and last
+    name_parts = data["name"].strip().split(maxsplit=1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+    
+    # Generate username from email
+    username = data["email"].split("@")[0]
+    
+    # Make username unique if it already exists
+    base_username = username
+    counter = 1
+    while User.query.filter_by(username=username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
 
     # Create new user
     user = User(
         email=data["email"],
-        username=data["username"],
-        first_name=data["first_name"],
-        last_name=data["last_name"],
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
         role=data.get("role", "student"),
         department_id=data.get("department_id"),
     )
@@ -47,13 +59,13 @@ def login():
     """Authenticate user and create session."""
     data = request.get_json()
 
-    if not data.get("username") or not data.get("password"):
-        return jsonify({"error": "Username and password required"}), 400
+    if not data.get("email") or not data.get("password"):
+        return jsonify({"error": "Email and password required"}), 400
 
-    user = User.query.filter_by(username=data["username"]).first()
+    user = User.query.filter_by(email=data["email"]).first()
 
     if not user or not user.check_password(data["password"]):
-        return jsonify({"error": "Invalid username or password"}), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
     if not user.is_active:
         return jsonify({"error": "Account is disabled"}), 403
@@ -79,6 +91,7 @@ def get_current_user():
 
 
 @auth_bp.route("/change-password", methods=["PUT"])
+@auth_bp.route("/password", methods=["PUT"])  # REST-compliant alias
 @login_required
 def change_password():
     """Change user password."""

@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+        <p>Manage events, users, and system settings</p>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 80px;">
+    <!-- Quick Stats -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 40px;">
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <div style="color: var(--text-light); font-size: 14px; margin-bottom: 8px;">Total Events</div>
+            <div id="totalEvents" style="font-size: 36px; font-weight: 700; color: var(--primary-color);">-</div>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <div style="color: var(--text-light); font-size: 14px; margin-bottom: 8px;">Active Users</div>
+            <div id="activeUsers" style="font-size: 36px; font-weight: 700; color: var(--success);">-</div>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <div style="color: var(--text-light); font-size: 14px; margin-bottom: 8px;">Total Registrations</div>
+            <div id="totalRegistrations" style="font-size: 36px; font-weight: 700; color: var(--secondary-color);">-</div>
+        </div>
+        
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <div style="color: var(--text-light); font-size: 14px; margin-bottom: 8px;">Check-ins Today</div>
+            <div id="checkinsToday" style="font-size: 36px; font-weight: 700; color: var(--accent-color);">-</div>
+        </div>
+    </div>
+
+    <!-- Management Sections -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+        <!-- Events Management -->
+        <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="color: var(--primary-color); margin: 0;">Events</h2>
+                <button onclick="showCreateEventModal()" class="btn btn-primary">+ Create Event</button>
+            </div>
+            
+            <div id="recentEvents"></div>
+        </div>
+
+        <!-- Users Management -->
+        <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="color: var(--primary-color); margin: 0;">Users</h2>
+                <a href="#" onclick="loadAllUsers(); return false;" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View All →</a>
+            </div>
+            
+            <div id="recentUsers"></div>
+        </div>
+    </div>
+
+    <!-- Calendar View Section -->
+    <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-top: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="color: var(--primary-color); margin: 0;">Campus Events Calendar</h2>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="changeCalendarView('week')" class="btn btn-secondary" id="weekViewBtn">Week</button>
+                <button onclick="changeCalendarView('month')" class="btn btn-secondary" id="monthViewBtn">Month</button>
+            </div>
+        </div>
+        
+        <div id="calendarView"></div>
+    </div>
+
+    <!-- Event Attendance Management -->
+    <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-top: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="color: var(--primary-color); margin: 0;">Event Attendance</h2>
+        </div>
+        
+        <div id="attendanceManagement">
+            <p style="color: var(--text-light); margin-bottom: 16px;">Select an event to view attendance and export data:</p>
+            <div class="form-group">
+                <select id="eventSelector" style="width: 100%; max-width: 500px;">
+                    <option value="">Loading events...</option>
+                </select>
+            </div>
+            
+            <div id="attendanceDetails" style="display: none; margin-top: 24px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div style="padding: 16px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="color: var(--text-light); font-size: 13px;">Total Registrations</div>
+                        <div id="totalReg" style="font-size: 28px; font-weight: 700; color: var(--primary-color);">0</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="color: var(--text-light); font-size: 13px;">Checked In</div>
+                        <div id="checkedIn" style="font-size: 28px; font-weight: 700; color: var(--success);">0</div>
+                    </div>
+                    <div style="padding: 16px; background: var(--bg-light); border-radius: 8px;">
+                        <div style="color: var(--text-light); font-size: 13px;">Attendance Rate</div>
+                        <div id="attendanceRate" style="font-size: 28px; font-weight: 700; color: var(--accent-color);">0%</div>
+                    </div>
+                </div>
+                
+                <button onclick="exportAttendance()" class="btn btn-primary">
+                    Export to CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Departments Section -->
+    <div style="background: white; padding: 32px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-top: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="color: var(--primary-color); margin: 0;">Departments</h2>
+            <button onclick="showCreateDepartmentModal()" class="btn btn-primary">+ Add Department</button>
+        </div>
+        
+        <div id="departmentsList"></div>
+    </div>
+</div>
+
+<!-- Create Event Modal (Simple version) -->
+<div id="createEventModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 40px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+        <h2 style="margin-bottom: 24px;">Create New Event</h2>
+        
+        <form id="createEventForm">
+            <div class="form-group">
+                <label>Department</label>
+                <select name="department_id" id="eventDepartmentSelect" required>
+                    <option value="">Select a department...</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" name="title" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="6" required placeholder="Provide a detailed description of the event..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Event Flier (Image)</label>
+                <input type="file" name="flier" accept="image/*" style="padding: 8px;">
+                <p style="font-size: 13px; color: var(--text-light); margin-top: 4px;">Upload a promotional flier for this event (optional)</p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Location</label>
+                    <input type="text" name="location" required>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="time" name="start_time" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="time" name="end_time" required>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>Max Capacity</label>
+                    <input type="number" name="max_capacity" min="1" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Points</label>
+                    <input type="number" name="points" min="0" value="0">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button type="submit" class="btn btn-primary">Create Event</button>
+                <button type="button" onclick="closeCreateEventModal()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch('/api/admin/statistics');
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('totalEvents').textContent = data.total_events || 0;
+                document.getElementById('activeUsers').textContent = data.active_users || 0;
+                document.getElementById('totalRegistrations').textContent = data.total_registrations || 0;
+                document.getElementById('checkinsToday').textContent = data.checkins_today || 0;
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+
+    async function loadRecentEvents() {
+        const container = document.getElementById('recentEvents');
+        
+        try {
+            const response = await fetch('/api/events?limit=5');
+            const data = await response.json();
+
+            if (response.ok && data.events && data.events.length > 0) {
+                container.innerHTML = data.events.map(event => `
+                    <div style="padding: 12px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 500;">${event.title}</div>
+                            <div style="font-size: 13px; color: var(--text-light);">${MuleSpace.formatDate(event.date)}</div>
+                        </div>
+                        <a href="/events/${event.id}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">View</a>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 20px;">No events yet</p>';
+            }
+        } catch (error) {
+            console.error('Error loading events:', error);
+        }
+    }
+
+    async function loadRecentUsers() {
+        const container = document.getElementById('recentUsers');
+        
+        try {
+            const response = await fetch('/api/admin/users?limit=5');
+            const data = await response.json();
+
+            if (response.ok && data.users && data.users.length > 0) {
+                container.innerHTML = data.users.map(user => `
+                    <div style="padding: 12px; border-bottom: 1px solid var(--border-color);">
+                        <div style="font-weight: 500;">${user.first_name} ${user.last_name}</div>
+                        <div style="font-size: 13px; color: var(--text-light);">${user.email} • ${user.role}</div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 20px;">No users yet</p>';
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    }
+
+    async function loadDepartments() {
+        const container = document.getElementById('departmentsList');
+        
+        try {
+            const response = await fetch('/api/auth/departments');
+            const data = await response.json();
+
+            if (response.ok && data.departments && data.departments.length > 0) {
+                container.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+                        ${data.departments.map(dept => `
+                            <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-light);">
+                                <div style="font-weight: 500; margin-bottom: 4px;">${dept.name}</div>
+                                <div style="font-size: 13px; color: var(--text-light);">${dept.contact_email || 'No contact'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 20px;">No departments yet</p>';
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    }
+
+    async function showCreateEventModal() {
+        // Load departments for dropdown
+        try {
+            const response = await fetch('/api/auth/departments');
+            const data = await response.json();
+            
+            const select = document.getElementById('eventDepartmentSelect');
+            select.innerHTML = '<option value="">Select a department...</option>';
+            
+            if (data.departments) {
+                data.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.id;
+                    option.textContent = dept.name;
+                    /* {% if current_user.department_id %} */
+                    if (dept.id === parseInt('{{ current_user.department_id }}')) {
+                        option.selected = true;
+                    }
+                    /* {% endif %} */
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+        
+        document.getElementById('createEventModal').style.display = 'flex';
+    }
+
+    function closeCreateEventModal() {
+        document.getElementById('createEventModal').style.display = 'none';
+        document.getElementById('createEventForm').reset();
+    }
+
+    function showCreateDepartmentModal() {
+        MuleSpace.showFlash('Department creation modal coming soon', 'info');
+    }
+
+    function loadAllUsers() {
+        MuleSpace.showFlash('Full user management coming soon', 'info');
+    }
+
+    document.getElementById('createEventForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        formData.append('registration_required', 'true');
+        
+        // Combine date and time for start_time and end_time
+        const date = formData.get('date');
+        const startTime = formData.get('start_time');
+        const endTime = formData.get('end_time');
+        
+        formData.set('start_time', `${date}T${startTime}:00`);
+        formData.set('end_time', `${date}T${endTime}:00`);
+        formData.delete('date');
+        
+        try {
+            const response = await fetch('/api/events', {
+                method: 'POST',
+                body: formData  // Send as FormData to support file upload
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                MuleSpace.showFlash('Event created successfully!', 'success');
+                closeCreateEventModal();
+                loadRecentEvents();
+                loadDashboardStats();
+                loadCalendarView();
+            } else {
+                throw new Error(data.error || 'Failed to create event');
+            }
+        } catch (error) {
+            console.error('Error creating event:', error);
+            MuleSpace.showFlash(error.message, 'error');
+        }
+    });
+
+    let currentCalendarView = 'month';
+    let selectedEventId = null;
+
+    async function loadCalendarView() {
+        const container = document.getElementById('calendarView');
+        
+        try {
+            const response = await fetch('/api/events?limit=50');
+            const data = await response.json();
+
+            if (response.ok && data.events && data.events.length > 0) {
+                const events = data.events;
+                
+                if (currentCalendarView === 'month') {
+                    renderMonthView(events, container);
+                } else {
+                    renderWeekView(events, container);
+                }
+            } else {
+                container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 40px;">No events scheduled</p>';
+            }
+        } catch (error) {
+            console.error('Error loading calendar:', error);
+            container.innerHTML = '<p style="color: var(--error); text-align: center; padding: 40px;">Failed to load calendar</p>';
+        }
+    }
+
+    function renderMonthView(events, container) {
+        // Group events by date
+        const eventsByDate = {};
+        events.forEach(event => {
+            const date = event.date;
+            if (!eventsByDate[date]) eventsByDate[date] = [];
+            eventsByDate[date].push(event);
+        });
+
+        const dates = Object.keys(eventsByDate).sort();
+        
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+                ${dates.map(date => `
+                    <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-light);">
+                        <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 12px;">
+                            ${MuleSpace.formatDate(date)}
+                        </div>
+                        ${eventsByDate[date].map(event => `
+                            <div style="padding: 8px; background: white; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid var(--primary-color);">
+                                <div style="font-size: 13px; font-weight: 500;">${event.title}</div>
+                                <div style="font-size: 12px; color: var(--text-light);">
+                                    ${MuleSpace.formatTime(event.start_time.substring(0, 5))} • ${event.location}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function renderWeekView(events, container) {
+        // Get next 7 days
+        const today = new Date();
+        const weekEvents = events.filter(event => {
+            const eventDate = new Date(event.date);
+            const diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays < 7;
+        });
+
+        if (weekEvents.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-light); text-align: center; padding: 40px;">No events this week</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                ${weekEvents.map(event => `
+                    <div style="padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; background: white; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">${event.title}</div>
+                            <div style="color: var(--text-light); font-size: 14px;">
+                                ${MuleSpace.formatDate(event.date)} at ${MuleSpace.formatTime(event.start_time.substring(0, 5))}
+                            </div>
+                            <div style="color: var(--text-light); font-size: 14px;">
+                                ${event.location} • ${event.department ? event.department.name : 'No dept'}
+                            </div>
+                        </div>
+                        <a href="/events/${event.id}" class="btn btn-primary">View Details</a>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function changeCalendarView(view) {
+        currentCalendarView = view;
+        
+        document.getElementById('weekViewBtn').classList.remove('btn-primary');
+        document.getElementById('monthViewBtn').classList.remove('btn-primary');
+        document.getElementById('weekViewBtn').classList.add('btn-secondary');
+        document.getElementById('monthViewBtn').classList.add('btn-secondary');
+        
+        if (view === 'week') {
+            document.getElementById('weekViewBtn').classList.remove('btn-secondary');
+            document.getElementById('weekViewBtn').classList.add('btn-primary');
+        } else {
+            document.getElementById('monthViewBtn').classList.remove('btn-secondary');
+            document.getElementById('monthViewBtn').classList.add('btn-primary');
+        }
+        
+        loadCalendarView();
+    }
+
+    async function loadEventSelector() {
+        const select = document.getElementById('eventSelector');
+        
+        try {
+            const response = await fetch('/api/events?limit=50');
+            const data = await response.json();
+
+            if (response.ok && data.events) {
+                select.innerHTML = '<option value="">Select an event...</option>' +
+                    data.events.map(event => 
+                        `<option value="${event.id}">${event.title} - ${MuleSpace.formatDate(event.date)}</option>`
+                    ).join('');
+            }
+        } catch (error) {
+            console.error('Error loading events:', error);
+        }
+    }
+
+    document.getElementById('eventSelector').addEventListener('change', async function(e) {
+        selectedEventId = e.target.value;
+        
+        if (!selectedEventId) {
+            document.getElementById('attendanceDetails').style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/events/${selectedEventId}/registrations`);
+            const data = await response.json();
+
+            if (response.ok) {
+                const total = data.registrations ? data.registrations.length : 0;
+                const checkedIn = data.registrations ? data.registrations.filter(r => r.checked_in_at).length : 0;
+                const rate = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+
+                document.getElementById('totalReg').textContent = total;
+                document.getElementById('checkedIn').textContent = checkedIn;
+                document.getElementById('attendanceRate').textContent = rate + '%';
+                
+                document.getElementById('attendanceDetails').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error loading attendance:', error);
+        }
+    });
+
+    function exportAttendance() {
+        if (!selectedEventId) {
+            MuleSpace.showFlash('Please select an event first', 'error');
+            return;
+        }
+
+        // Download CSV file
+        window.location.href = `/api/attendance/export/${selectedEventId}`;
+        MuleSpace.showFlash('Downloading attendance data...', 'success');
+    }
+
+    // Load all data on page load
+    loadDashboardStats();
+    loadRecentEvents();
+    loadRecentUsers();
+    loadDepartments();
+    loadCalendarView();
+    loadEventSelector();
+</script>
+{% endblock %}

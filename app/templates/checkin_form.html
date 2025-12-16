@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Event Check-In{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1>Event Check-In</h1>
+        <p>Complete your attendance registration</p>
+    </div>
+</div>
+
+<div class="container" style="margin-top: 40px; margin-bottom: 80px;">
+    <div style="max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: var(--shadow-sm);">
+        <div id="eventInfo" style="margin-bottom: 32px; padding: 20px; background: var(--bg-light); border-radius: 8px;">
+            <div class="loading">Loading event information...</div>
+        </div>
+
+        <form id="checkinForm">
+            <div class="form-group">
+                <label for="fullName">Full Name *</label>
+                <input type="text" id="fullName" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" required>
+            </div>
+
+            <div class="form-group">
+                <label for="studentId">Student ID (Optional)</label>
+                <input type="text" id="studentId">
+            </div>
+
+            <div class="form-group">
+                <label for="department">Department/Major *</label>
+                <select id="department" required>
+                    <option value="">Select department...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number (Optional)</label>
+                <input type="tel" id="phone">
+            </div>
+
+            <div class="form-group">
+                <label for="comments">Comments/Questions (Optional)</label>
+                <textarea id="comments" rows="3"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Complete Check-In</button>
+        </form>
+
+        <div id="successMessage" style="display: none; margin-top: 24px; padding: 20px; background: var(--success); color: white; border-radius: 8px; text-align: center;">
+            <h3>Check-In Successful!</h3>
+            <p>Thank you for attending. Your attendance has been recorded.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event');
+    let currentEvent = null;
+
+    async function loadEventInfo() {
+        if (!eventId) {
+            document.getElementById('eventInfo').innerHTML = '<p style="color: var(--error);">Invalid check-in link. Please scan the QR code again.</p>';
+            document.getElementById('checkinForm').style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/events/${eventId}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                currentEvent = data.event;
+                const eventDateTime = new Date(currentEvent.date + 'T' + currentEvent.start_time);
+                
+                document.getElementById('eventInfo').innerHTML = `
+                    <h3 style="color: var(--primary-color); margin-bottom: 12px;">${currentEvent.title}</h3>
+                    <div style="color: var(--text-light); margin-bottom: 8px;">
+                        ${MuleSpace.formatDate(currentEvent.date)} at ${MuleSpace.formatTime(currentEvent.start_time.substring(0, 5))}
+                    </div>
+                    <div style="color: var(--text-light);">
+                        ${currentEvent.location}
+                    </div>
+                `;
+
+                // Pre-fill email if user is logged in
+                /* {% if current_user.is_authenticated %} */
+                document.getElementById('fullName').value = '{{ current_user.first_name }} {{ current_user.last_name }}';
+                document.getElementById('email').value = '{{ current_user.email }}';
+                /* {% endif %} */
+
+                loadDepartments();
+            } else {
+                throw new Error(data.error || 'Event not found');
+            }
+        } catch (error) {
+            console.error('Error loading event:', error);
+            document.getElementById('eventInfo').innerHTML = `<p style="color: var(--error);">${error.message}</p>`;
+            document.getElementById('checkinForm').style.display = 'none';
+        }
+    }
+
+    async function loadDepartments() {
+        try {
+            const response = await fetch('/api/auth/departments');
+            const data = await response.json();
+
+            if (response.ok) {
+                const select = document.getElementById('department');
+                data.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.id;
+                    option.textContent = dept.name;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    }
+
+    document.getElementById('checkinForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        const formData = {
+            event_id: eventId,
+            full_name: document.getElementById('fullName').value,
+            email: document.getElementById('email').value,
+            student_id: document.getElementById('studentId').value,
+            department_id: document.getElementById('department').value,
+            phone: document.getElementById('phone').value,
+            comments: document.getElementById('comments').value,
+            check_in_method: 'qr_code'
+        };
+
+        try {
+            const response = await fetch('/api/attendance/check-in-form', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('checkinForm').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+                
+                // Redirect after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/events';
+                }, 3000);
+            } else {
+                throw new Error(data.error || 'Check-in failed');
+            }
+        } catch (error) {
+            console.error('Check-in error:', error);
+            MuleSpace.showFlash(error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Complete Check-In';
+        }
+    });
+
+    loadEventInfo();
+</script>
+{% endblock %}

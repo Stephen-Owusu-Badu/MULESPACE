@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from flask_login import LoginManager
+from flask_mail import Mail
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -9,6 +10,7 @@ from config import config
 db = SQLAlchemy()
 login_manager = LoginManager()
 migrate = Migrate()
+mail = Mail()
 
 
 def create_app(config_name="default"):
@@ -20,6 +22,7 @@ def create_app(config_name="default"):
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    mail.init_app(app)
     CORS(app)
 
     # Login manager configuration
@@ -36,7 +39,12 @@ def create_app(config_name="default"):
     from app.routes.auth import auth_bp
     from app.routes.calendar import calendar_bp
     from app.routes.events import events_bp
+    from app.routes.views import views_bp
 
+    # Register view routes (HTML templates)
+    app.register_blueprint(views_bp)
+
+    # Register API routes
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(events_bp, url_prefix="/api/events")
     app.register_blueprint(calendar_bp, url_prefix="/api/calendar")

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MuleSpace{% endblock %} | Colby College</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="/">MuleSpace</a>
+                <span class="nav-subtitle">Colby College Events</span>
+            </div>
+            <div class="nav-links" id="navLinks">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.role in ['admin', 'department_admin'] %}
+                        <!-- Admin Navigation -->
+                        <a href="/admin">Dashboard</a>
+                        <a href="/events">All Events</a>
+                        <a href="/profile">Profile</a>
+                    {% else %}
+                        <!-- Student Navigation -->
+                        <a href="/student">Home</a>
+                        <a href="/events">Browse Events</a>
+                        <a href="/calendar">My Calendar</a>
+                        <a href="/profile">Profile</a>
+                    {% endif %}
+                    <div class="nav-user">
+                        <span>{{ current_user.first_name }}</span>
+                        <a href="/logout" class="btn-logout">Logout</a>
+                    </div>
+                {% else %}
+                    <a href="/events">Events</a>
+                    <a href="/login" class="btn-primary">Login</a>
+                {% endif %}
+            </div>
+            <button class="nav-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">
+                            {{ message }}
+                            <button class="flash-close">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>MuleSpace</h3>
+                    <p>Campus event management platform for Colby College</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <a href="/events">Browse Events</a>
+                    <a href="/calendar">Event Calendar</a>
+                    <a href="https://www.colby.edu" target="_blank">Colby.edu</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <p>Halloran Lab</p>
+                    <p>Colby College</p>
+                    <p>Waterville, ME 04901</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Colby College. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
