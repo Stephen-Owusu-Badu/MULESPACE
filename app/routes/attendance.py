@@ -284,9 +284,8 @@ def export_attendance(event_id):
     response = make_response(output.getvalue())
     response.headers["Content-Type"] = "text/csv"
     filename = (
-        f'attendance_{event.title.replace(" ", "_")}_'
-        f'{datetime.now().strftime("%Y%m%d")}.csv'
+        f'attendance_{event.title.replace(" ", "_")}_' f'{datetime.now().strftime("%Y%m%d")}.csv'
     )
-    response.headers["Content-Disposition"] = f'attachment; filename={filename}'
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
 
     return response

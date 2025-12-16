@@ -177,9 +177,7 @@ class TestCalendarRoutes:
         response = admin_client.delete(f"/api/calendar/events/{event.id}")
         assert response.status_code == 200
 
-    def test_get_calendar_events_endpoint_details(
-        self, authenticated_client, event
-    ):
+    def test_get_calendar_events_endpoint_details(self, authenticated_client, event):
         """Test /api/calendar/events endpoint with event details."""
         response = authenticated_client.get("/api/calendar/events")
         assert response.status_code == 200

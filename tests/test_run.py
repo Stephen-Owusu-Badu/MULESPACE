@@ -10,6 +10,7 @@ class TestRunPy:
     def test_run_py_imports(self):
         """Test that run.py can be imported without errors."""
         import run
+
         assert run is not None
 
     def test_run_py_creates_app(self):
@@ -137,4 +138,4 @@ class TestRunPy:
         # which allows external access
         with open("run.py") as f:
             content = f.read()
-            assert '0.0.0.0' in content or '"0.0.0.0"' in content
+            assert "0.0.0.0" in content or '"0.0.0.0"' in content
