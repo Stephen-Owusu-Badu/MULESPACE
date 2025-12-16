@@ -216,3 +216,69 @@ class TestAdminRoutes:
         """Test department analytics as non-admin."""
         response = dept_admin_client.get("/api/admin/analytics/departments")
         assert response.status_code == 403
+
+    def test_get_statistics_as_admin(self, admin_client, event, student_user):
+        """Test getting statistics as admin."""
+        response = admin_client.get("/api/admin/statistics")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "total_events" in data
+        assert "active_users" in data or "total_users" in data
+
+    def test_get_statistics_as_dept_admin(self, dept_admin_client):
+        """Test getting statistics as department admin."""
+        response = dept_admin_client.get("/api/admin/statistics")
+        assert response.status_code == 200
+
+    def test_get_statistics_unauthorized(self, authenticated_client):
+        """Test getting statistics as student."""
+        response = authenticated_client.get("/api/admin/statistics")
+        assert response.status_code == 403
+
+    def test_update_user_email(self, admin_client, student_user):
+        """Test updating user email."""
+        response = admin_client.put(
+            f"/api/admin/users/{student_user.id}",
+            json={"email": "newemail@test.com"}
+        )
+        assert response.status_code == 200
+
+    def test_update_user_role(self, admin_client, student_user):
+        """Test updating user role."""
+        response = admin_client.put(
+            f"/api/admin/users/{student_user.id}",
+            json={"role": "department_admin"}
+        )
+        assert response.status_code == 200
+
+    def test_create_department_with_description(self, admin_client):
+        """Test creating department with description."""
+        response = admin_client.post(
+            "/api/admin/departments",
+            json={"name": "New Department", "description": "New Description"}
+        )
+        assert response.status_code == 201
+
+    def test_get_users_with_role_filter(self, admin_client, student_user):
+        """Test filtering users by role."""
+        response = admin_client.get("/api/admin/users?role=student")
+        assert response.status_code == 200
+
+    def test_get_users_with_department_filter(self, admin_client, department):
+        """Test filtering users by department."""
+        response = admin_client.get(f"/api/admin/users?department_id={department.id}")
+        assert response.status_code == 200
+
+    def test_get_users_with_limit(self, admin_client):
+        """Test getting users with limit."""
+        response = admin_client.get("/api/admin/users?limit=5")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["users"]) <= 5
+
+    def test_get_dashboard_with_events(self, admin_client, event):
+        """Test dashboard statistics include events."""
+        response = admin_client.get("/api/admin/dashboard")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "stats" in data

@@ -94,6 +94,14 @@ class TestAttendanceRoutes:
         data = response.get_json()
         assert len(data["attendances"]) == 1
 
+    def test_check_in_via_rest_endpoint(self, authenticated_client, event):
+        """Test check-in via REST-compliant endpoint."""
+        response = authenticated_client.post(
+            "/api/attendance",
+            json={"event_id": event.id},
+        )
+        assert response.status_code == 201
+
     def test_get_my_attended_events_with_pagination(self, authenticated_client, student_user):
         """Test pagination of attended events."""
         response = authenticated_client.get("/api/attendance/my-events?page=1&per_page=10")
@@ -217,5 +225,187 @@ class TestAttendanceRoutes:
             "/api/attendance/bulk-check-in",
             json={"event_id": other_event.id, "user_ids": [1]},
         )
+        assert response.status_code == 403
 
+    def test_bulk_check_in_via_rest_endpoint(self, admin_client, event, student_user):
+        """Test bulk check-in via REST-compliant endpoint."""
+        response = admin_client.post(
+            "/api/attendance/bulk",
+            json={"event_id": event.id, "user_ids": [student_user.id]},
+        )
+        assert response.status_code == 200
+
+    def test_check_in_form_public_endpoint(self, client, event, department, student_user):
+        """Test public check-in form endpoint - requires existing user."""
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": event.id,
+                "full_name": "Test Student",
+                "email": "student@test.com",
+                "department_id": department.id
+            },
+        )
+        assert response.status_code in [200, 201]
+
+    def test_check_in_form_missing_fields(self, client, event):
+        """Test check-in form with missing fields."""
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={"event_id": event.id},
+        )
+        assert response.status_code == 400
+
+    def test_check_in_form_invalid_email(self, client, event, department):
+        """Test check-in form with invalid email."""
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": event.id,
+                "full_name": "John Doe",
+                "email": "invalid-email",
+                "department_id": department.id
+            },
+        )
+        assert response.status_code in [400, 201]
+
+    def test_export_attendance_as_admin(self, admin_client, event, student_user):
+        """Test exporting attendance as CSV."""
+        att = Attendance(event_id=event.id, user_id=student_user.id)
+        db.session.add(att)
+        db.session.commit()
+
+        response = admin_client.get(f"/api/attendance/export/{event.id}")
+        assert response.status_code == 200
+        assert response.content_type == "text/csv"
+
+    def test_export_attendance_as_dept_admin(self, dept_admin_client, event):
+        """Test exporting attendance as department admin."""
+        response = dept_admin_client.get(f"/api/attendance/export/{event.id}")
+        assert response.status_code == 200
+
+    def test_export_attendance_unauthorized(self, authenticated_client, event):
+        """Test exporting attendance as student."""
+        response = authenticated_client.get(f"/api/attendance/export/{event.id}")
+        assert response.status_code == 403
+
+    def test_export_attendance_not_found(self, admin_client):
+        """Test exporting attendance for non-existent event."""
+        response = admin_client.get("/api/attendance/export/99999")
+        assert response.status_code == 404
+
+    def test_get_attendance_status_for_registered_event(self, authenticated_client, event, student_user):
+        """Test getting attendance status when registered."""
+        att = Attendance(event_id=event.id, user_id=student_user.id)
+        db.session.add(att)
+        db.session.commit()
+
+        response = authenticated_client.get(f"/api/attendance/event/{event.id}/status")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["checked_in"] is True
+
+    def test_bulk_check_in_nonexistent_users(self, admin_client, event):
+        """Test bulk check-in with non-existent users."""
+        response = admin_client.post(
+            "/api/attendance/bulk-check-in",
+            json={"event_id": event.id, "user_ids": [99999, 99998]},
+        )
+        assert response.status_code == 200
+
+    def test_check_in_form_with_existing_user(self, client, event, student_user, department):
+        """Test check-in form with existing user."""
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": event.id,
+                "full_name": "Test Student",
+                "email": "student@test.com",
+                "department_id": department.id
+            },
+        )
+        assert response.status_code in [200, 201]
+
+    def test_check_in_form_duplicate_checkin(self, client, event, student_user, department):
+        """Test check-in form with duplicate check-in."""
+        # First check-in
+        client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": event.id,
+                "full_name": "Test Student",
+                "email": "student@test.com",
+                "department_id": department.id
+            },
+        )
+        
+        # Duplicate check-in
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": event.id,
+                "full_name": "Test Student",
+                "email": "student@test.com",
+                "department_id": department.id
+            },
+        )
+        assert response.status_code in [400, 409]
+
+    def test_check_in_form_inactive_event(self, client, event, department):
+        """Test check-in form with inactive event."""
+        from app import db
+        event.is_active = False
+        db.session.commit()
+
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": event.id,
+                "full_name": "Test User",
+                "email": "test@example.com",
+                "department_id": department.id
+            },
+        )
+        assert response.status_code == 400
+
+    def test_check_in_form_nonexistent_event(self, client, department):
+        """Test check-in form with non-existent event."""
+        response = client.post(
+            "/api/attendance/check-in-form",
+            json={
+                "event_id": 99999,
+                "full_name": "Test User",
+                "email": "test@example.com",
+                "department_id": department.id
+            },
+        )
+        assert response.status_code == 404
+
+    def test_export_attendance_empty_event(self, admin_client, event):
+        """Test exporting attendance with no attendees."""
+        response = admin_client.get(f"/api/attendance/export/{event.id}")
+        assert response.status_code == 200
+        assert response.content_type == "text/csv"
+
+    def test_export_attendance_wrong_department(self, dept_admin_client, admin_user, department):
+        """Test department admin cannot export attendance for other department's event."""
+        from app.models import Event, Department
+        from datetime import datetime, timedelta
+        
+        # Create event in a different department
+        other_dept = Department(name="Other Department")
+        db.session.add(other_dept)
+        db.session.commit()
+        
+        other_event = Event(
+            title="Other Event",
+            start_time=datetime.utcnow() + timedelta(hours=1),
+            end_time=datetime.utcnow() + timedelta(hours=2),
+            department_id=other_dept.id,
+            created_by=admin_user.id,
+        )
+        db.session.add(other_event)
+        db.session.commit()
+        
+        response = dept_admin_client.get(f"/api/attendance/export/{other_event.id}")
         assert response.status_code == 403

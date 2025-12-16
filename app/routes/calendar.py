@@ -179,7 +179,7 @@ def add_to_calendar():
     attendance = Attendance(
         event_id=event_id,
         user_id=current_user.id,
-        status="registered"
+        check_in_method="web_registration"
     )
     
     db.session.add(attendance)

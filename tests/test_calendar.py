@@ -150,3 +150,83 @@ class TestCalendarRoutes:
         # Past event should not be in upcoming
         event_titles = [e["title"] for e in data["events"]]
         assert "Past Event" not in event_titles
+
+    def test_get_calendar_events_endpoint(self, authenticated_client, event):
+        """Test GET /api/calendar/events endpoint."""
+        response = authenticated_client.get("/api/calendar/events")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "events" in data
+
+    def test_add_event_to_calendar_as_admin(self, admin_client, event):
+        """Test admin adding event to their calendar (registering)."""
+        response = admin_client.post(
+            "/api/calendar/events",
+            json={"event_id": event.id},
+        )
+        assert response.status_code == 201
+
+    def test_remove_event_from_calendar_as_admin(self, admin_client, event):
+        """Test admin removing event from their calendar."""
+        # First add it
+        admin_client.post(
+            "/api/calendar/events",
+            json={"event_id": event.id},
+        )
+        # Then remove it
+        response = admin_client.delete(f"/api/calendar/events/{event.id}")
+        assert response.status_code == 200
+
+    def test_get_calendar_events_endpoint(self, authenticated_client, event):
+        """Test /api/calendar/events endpoint."""
+        response = authenticated_client.get("/api/calendar/events")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "events" in data
+
+    def test_get_calendar_statistics(self, authenticated_client, event):
+        """Test getting calendar statistics."""
+        response = authenticated_client.get("/api/calendar/statistics")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "total_events" in data or "stats" in data
+
+    def test_check_conflicts_with_same_event(self, client, event):
+        """Test conflict check excludes same event."""
+        response = client.post(
+            "/api/calendar/conflicts",
+            json={
+                "start_time": event.start_time.isoformat(),
+                "end_time": event.end_time.isoformat(),
+                "exclude_event_id": event.id
+            }
+        )
+        assert response.status_code == 200
+
+    def test_get_calendar_events_with_limit(self, authenticated_client, event):
+        """Test calendar events with limit."""
+        response = authenticated_client.get("/api/calendar/events?limit=5")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["events"]) <= 5
+
+    def test_add_to_calendar_missing_event_id(self, authenticated_client):
+        """Test adding to calendar without event_id."""
+        response = authenticated_client.post("/api/calendar/events", json={})
+        assert response.status_code == 400
+
+    def test_add_to_calendar_nonexistent_event(self, authenticated_client):
+        """Test adding non-existent event to calendar."""
+        response = authenticated_client.post("/api/calendar/events", json={"event_id": 99999})
+        assert response.status_code == 404
+
+    def test_add_to_calendar_duplicate(self, authenticated_client, event):
+        """Test adding same event to calendar twice."""
+        authenticated_client.post("/api/calendar/events", json={"event_id": event.id})
+        response = authenticated_client.post("/api/calendar/events", json={"event_id": event.id})
+        assert response.status_code == 409
+
+    def test_remove_from_calendar_not_registered(self, authenticated_client, event):
+        """Test removing event not in calendar."""
+        response = authenticated_client.delete(f"/api/calendar/events/{event.id}")
+        assert response.status_code == 404

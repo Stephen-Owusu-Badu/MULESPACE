@@ -110,28 +110,31 @@ def event(app, department, admin_user):
 @pytest.fixture
 def authenticated_client(client, student_user):
     """Create authenticated client."""
-    client.post(
-        "/api/auth/login",
-        json={"username": "student", "password": "password123"},
-    )
-    return client
+    with client:
+        client.post(
+            "/api/auth/login",
+            json={"email": "student@test.com", "password": "password123"},
+        )
+        yield client
 
 
 @pytest.fixture
 def admin_client(client, admin_user):
     """Create authenticated admin client."""
-    client.post(
-        "/api/auth/login",
-        json={"username": "admin", "password": "admin123"},
-    )
-    return client
+    with client:
+        client.post(
+            "/api/auth/login",
+            json={"email": "admin@test.com", "password": "admin123"},
+        )
+        yield client
 
 
 @pytest.fixture
 def dept_admin_client(client, dept_admin_user):
     """Create authenticated department admin client."""
-    client.post(
-        "/api/auth/login",
-        json={"username": "deptadmin", "password": "deptadmin123"},
-    )
-    return client
+    with client:
+        client.post(
+            "/api/auth/login",
+            json={"email": "deptadmin@test.com", "password": "deptadmin123"},
+        )
+        yield client

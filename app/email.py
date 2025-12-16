@@ -25,10 +25,10 @@ Great news! You've successfully registered for:
 {event.title}
 
 Event Details:
-📅 Date: {event.start_time.strftime('%A, %B %d, %Y')}
-🕐 Time: {event.start_time.strftime('%I:%M %p')} - {event.end_time.strftime('%I:%M %p')}
-📍 Location: {event.location}
-🏫 Department: {event.department.name}
+    Date: {event.start_time.strftime('%A, %B %d, %Y')}
+    Time: {event.start_time.strftime('%I:%M %p')} - {event.end_time.strftime('%I:%M %p')}
+    Location: {event.location}
+    Department: {event.department.name}
 
 {event.description if event.description else ''}
 
