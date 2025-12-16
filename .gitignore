@@ -38,3 +38,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Uploads (generated during tests and runtime)
+app/static/uploads/fliers/
+app/static/qrcodes/
