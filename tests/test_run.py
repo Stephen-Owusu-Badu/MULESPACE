@@ -1,9 +1,7 @@
 """Tests for run.py - application entry point."""
 
 import os
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestRunPy:
@@ -12,7 +10,6 @@ class TestRunPy:
     def test_run_py_imports(self):
         """Test that run.py can be imported without errors."""
         import run
-
         assert run is not None
 
     def test_run_py_creates_app(self):
@@ -77,7 +74,7 @@ class TestRunPy:
         os.environ.pop("PORT", None)
 
         # Import and check the port that would be used
-        import run
+        import run  # noqa: F401
 
         # The default port should be 5000
         assert int(os.environ.get("PORT", 5000)) == 5000

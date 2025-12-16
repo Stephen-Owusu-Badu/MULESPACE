@@ -2,7 +2,6 @@
 
 import os
 
-import pytest
 
 from config import Config, DevelopmentConfig, ProductionConfig, TestingConfig, config
 

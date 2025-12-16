@@ -1,8 +1,5 @@
 """Tests for seed_data.py - database seeding script."""
 
-import pytest
-
-from app import db
 from app.models import Attendance, Department, Event, User
 
 
@@ -96,7 +93,7 @@ class TestCreateDepartments:
 
         with app.app_context():
             initial_count = Department.query.count()
-            departments = create_departments()
+            create_departments()
 
             # Should have more departments now
             assert Department.query.count() > initial_count
@@ -110,8 +107,7 @@ class TestCreateUsers:
         from seed_data import create_departments, create_users
 
         with app.app_context():
-            departments = create_departments()
-            users = create_users(departments)
+            users = create_users(create_departments())
 
             assert len(users) > 0
             assert all(isinstance(u, User) for u in users)
