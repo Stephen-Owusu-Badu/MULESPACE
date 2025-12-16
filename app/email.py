@@ -1,6 +1,6 @@
 """Email utility functions for MuleSpace."""
-from flask import render_template_string
 from flask_mail import Message
+
 from app import mail
 
 
@@ -15,7 +15,7 @@ def send_email(subject, recipients, text_body, html_body, sender=None):
 def send_registration_confirmation(user, event):
     """Send registration confirmation email to user."""
     subject = f"Confirmed: You're registered for {event.title}"
-    
+
     # Plain text version
     text_body = f"""
 Hi {user.first_name},
@@ -32,7 +32,7 @@ Event Details:
 
 {event.description if event.description else ''}
 
-We're excited to see you there! If you have any questions or need to make changes, 
+We're excited to see you there! If you have any questions or need to make changes,
 please don't hesitate to reach out.
 
 Best regards,
@@ -137,47 +137,55 @@ Colby College
     <div class="header">
         <h1>✓ Registration Confirmed!</h1>
     </div>
-    
+
     <div class="content">
         <p>Hi {user.first_name},</p>
-        
+
         <p>Great news! You've successfully registered for the following event:</p>
-        
+
         <div class="event-card">
             <div class="event-title">{event.title}</div>
-            
+
             <div class="detail-row">
                 <span class="detail-label">Date:</span>
                 <span class="detail-value">{event.start_time.strftime('%A, %B %d, %Y')}</span>
             </div>
-            
+
             <div class="detail-row">
                 <span class="detail-label">Time:</span>
-                <span class="detail-value">{event.start_time.strftime('%I:%M %p')} - {event.end_time.strftime('%I:%M %p')}</span>
+                <span class="detail-value">
+                    {event.start_time.strftime('%I:%M %p')} -
+                    {event.end_time.strftime('%I:%M %p')}
+                </span>
             </div>
-            
+
             <div class="detail-row">
                 <span class="detail-label">Location:</span>
                 <span class="detail-value">{event.location}</span>
             </div>
-            
+
             <div class="detail-row">
                 <span class="detail-label">Department:</span>
                 <span class="detail-value">{event.department.name}</span>
             </div>
-            
+
             {f'<div class="description">{event.description}</div>' if event.description else ''}
         </div>
-        
+
         <div class="message">
             <strong>📌 What's Next?</strong><br>
-            We're excited to see you at this event! Make sure to add it to your calendar so you don't miss it. 
-            When you arrive, you can check in using the QR code at the venue or through the MuleSpace app.
+            We're excited to see you at this event! Make sure to add it to
+            your calendar so you don't miss it. When you arrive, you can
+            check in using the QR code at the venue or through the
+            MuleSpace app.
         </div>
-        
-        <p>If you have any questions or need to make changes to your registration, please don't hesitate to reach out to us.</p>
+
+        <p>
+            If you have any questions or need to make changes to your
+            registration, please don't hesitate to reach out to us.
+        </p>
     </div>
-    
+
     <div class="footer">
         <p><strong>MuleSpace</strong><br>
         Campus Event Management System<br>
@@ -189,5 +197,5 @@ Colby College
 </body>
 </html>
 """
-    
+
     send_email(subject, [user.email], text_body, html_body)

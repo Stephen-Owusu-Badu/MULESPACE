@@ -220,7 +220,7 @@ class TestAuthRoutes:
                 "department_id": department.id,
             },
         )
-        
+
         # Second user with same base username (from email)
         response = client.post(
             "/api/auth/register",

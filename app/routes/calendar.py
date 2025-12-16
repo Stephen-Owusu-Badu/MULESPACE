@@ -143,12 +143,13 @@ def get_my_calendar_events():
     # Get all events the user has registered for
     attendances = Attendance.query.filter_by(user_id=current_user.id).all()
     event_ids = [a.event_id for a in attendances]
-    
-    events = Event.query.filter(
-        Event.id.in_(event_ids),
-        Event.is_active == True  # noqa: E712
-    ).order_by(Event.start_time.asc()).all()
-    
+
+    events = (
+        Event.query.filter(Event.id.in_(event_ids), Event.is_active == True)  # noqa: E712
+        .order_by(Event.start_time.asc())
+        .all()
+    )
+
     return jsonify({"events": [event.to_dict() for event in events]}), 200
 
 
@@ -158,33 +159,28 @@ def add_to_calendar():
     """Add an event to user's calendar (register for event)."""
     data = request.get_json()
     event_id = data.get("event_id")
-    
+
     if not event_id:
         return jsonify({"error": "Event ID required"}), 400
-    
+
     event = db.session.get(Event, event_id)
     if not event:
         return jsonify({"error": "Event not found"}), 404
-    
+
     # Check if already registered
-    existing = Attendance.query.filter_by(
-        event_id=event_id,
-        user_id=current_user.id
-    ).first()
-    
+    existing = Attendance.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+
     if existing:
         return jsonify({"error": "Already added to calendar"}), 409
-    
+
     # Create attendance record
     attendance = Attendance(
-        event_id=event_id,
-        user_id=current_user.id,
-        check_in_method="web_registration"
+        event_id=event_id, user_id=current_user.id, check_in_method="web_registration"
     )
-    
+
     db.session.add(attendance)
     db.session.commit()
-    
+
     return jsonify({"message": "Event added to calendar"}), 201
 
 
@@ -192,17 +188,14 @@ def add_to_calendar():
 @login_required
 def remove_from_calendar(event_id):
     """Remove an event from user's calendar."""
-    attendance = Attendance.query.filter_by(
-        event_id=event_id,
-        user_id=current_user.id
-    ).first()
-    
+    attendance = Attendance.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+
     if not attendance:
         return jsonify({"error": "Event not in calendar"}), 404
-    
+
     db.session.delete(attendance)
     db.session.commit()
-    
+
     return jsonify({"message": "Event removed from calendar"}), 200
 
 
@@ -213,22 +206,27 @@ def get_calendar_statistics():
     # Get user's attendances
     attendances = Attendance.query.filter_by(user_id=current_user.id).all()
     event_ids = [a.event_id for a in attendances]
-    
+
     total_events = len(event_ids)
-    
+
     # Get upcoming events
     now = datetime.utcnow()
     upcoming_events = Event.query.filter(
         Event.id.in_(event_ids) if event_ids else Event.id == None,  # noqa: E711
         Event.start_time >= now,
-        Event.is_active == True  # noqa: E712
+        Event.is_active == True,  # noqa: E712
     ).count()
-    
+
     # Calculate total points (if events have points)
     total_points = 0
-    
-    return jsonify({
-        "total_events": total_events,
-        "upcoming_events": upcoming_events,
-        "total_points": total_points
-    }), 200
+
+    return (
+        jsonify(
+            {
+                "total_events": total_events,
+                "upcoming_events": upcoming_events,
+                "total_points": total_points,
+            }
+        ),
+        200,
+    )

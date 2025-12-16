@@ -222,12 +222,12 @@ class TestNotificationModel:
 
     def test_user_full_name(self, student_user):
         """Test user full name property."""
-        if hasattr(student_user, 'full_name'):
+        if hasattr(student_user, "full_name"):
             assert student_user.full_name == "Test Student"
 
     def test_user_is_admin(self, student_user, admin_user):
         """Test user is_admin check."""
-        if hasattr(student_user, 'is_admin'):
+        if hasattr(student_user, "is_admin"):
             assert not student_user.is_admin
             assert admin_user.is_admin
 
@@ -235,8 +235,8 @@ class TestNotificationModel:
         """Test event is_full property."""
         from app import db
         from app.models import Attendance
-        
-        if hasattr(event, 'is_full'):
+
+        if hasattr(event, "is_full"):
             # Event with capacity 50 and one attendee should not be full
             att = Attendance(event_id=event.id, user_id=student_user.id)
             db.session.add(att)
@@ -245,7 +245,7 @@ class TestNotificationModel:
 
     def test_event_available_spots(self, event):
         """Test event available_spots property."""
-        if hasattr(event, 'available_spots'):
+        if hasattr(event, "available_spots"):
             assert event.available_spots == 50
 
     def test_department_user_count(self, department, student_user):
@@ -262,17 +262,17 @@ class TestNotificationModel:
         """Test attendance has timestamp."""
         from app import db
         from app.models import Attendance
-        
+
         att = Attendance(event_id=event.id, user_id=student_user.id)
         db.session.add(att)
         db.session.commit()
-        
+
         assert att.checked_in_at is not None
 
     def test_user_inactive(self, app, department):
         """Test creating inactive user."""
         from app import db
-        
+
         user = User(
             email="inactive@test.com",
             username="inactive",
@@ -280,29 +280,30 @@ class TestNotificationModel:
             last_name="User",
             role="student",
             department_id=department.id,
-            is_active=False
+            is_active=False,
         )
         user.set_password("password123")
         db.session.add(user)
         db.session.commit()
-        
+
         assert not user.is_active
 
     def test_event_without_capacity(self, app, department, admin_user):
         """Test creating event without capacity limit."""
+        from datetime import datetime, timedelta
+
         from app import db
         from app.models import Event
-        from datetime import datetime, timedelta
-        
+
         event = Event(
             title="Unlimited Event",
             start_time=datetime.utcnow() + timedelta(days=1),
             end_time=datetime.utcnow() + timedelta(days=1, hours=2),
             department_id=department.id,
             created_by=admin_user.id,
-            max_capacity=None
+            max_capacity=None,
         )
         db.session.add(event)
         db.session.commit()
-        
+
         assert event.max_capacity is None

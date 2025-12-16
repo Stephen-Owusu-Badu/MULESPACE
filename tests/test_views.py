@@ -1,8 +1,5 @@
 """Tests for view routes."""
 
-import pytest
-from flask import session
-
 
 class TestViewRoutes:
     """Test view rendering routes."""
@@ -16,16 +13,16 @@ class TestViewRoutes:
     def test_index_authenticated_student(self, client, student_user):
         """Test index redirects authenticated student to dashboard."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(student_user.id)
-        
+            sess["_user_id"] = str(student_user.id)
+
         response = client.get("/", follow_redirects=False)
         assert response.status_code in [200, 302]
 
     def test_index_authenticated_admin(self, client, admin_user):
         """Test index for authenticated admin."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(admin_user.id)
-        
+            sess["_user_id"] = str(admin_user.id)
+
         response = client.get("/", follow_redirects=False)
         assert response.status_code in [200, 302]
 
@@ -71,8 +68,8 @@ class TestViewRoutes:
     def test_my_events_page_authenticated(self, client, student_user):
         """Test my events page for authenticated user."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(student_user.id)
-        
+            sess["_user_id"] = str(student_user.id)
+
         response = client.get("/my-events")
         assert response.status_code == 200
 
@@ -84,8 +81,8 @@ class TestViewRoutes:
     def test_admin_page_as_admin(self, client, admin_user):
         """Test admin page for admin users."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(admin_user.id)
-        
+            sess["_user_id"] = str(admin_user.id)
+
         response = client.get("/admin")
         assert response.status_code == 200
 
@@ -118,16 +115,16 @@ class TestViewRoutes:
     def test_admin_page_as_dept_admin(self, client, dept_admin_user):
         """Test admin page for department admin users."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(dept_admin_user.id)
-        
+            sess["_user_id"] = str(dept_admin_user.id)
+
         response = client.get("/admin")
         assert response.status_code == 200
 
     def test_admin_page_as_student(self, client, student_user):
         """Test admin page denies access to students."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(student_user.id)
-        
+            sess["_user_id"] = str(student_user.id)
+
         response = client.get("/admin", follow_redirects=False)
         assert response.status_code in [302, 403]
 
@@ -139,8 +136,8 @@ class TestViewRoutes:
     def test_student_dashboard_authenticated(self, client, student_user):
         """Test student dashboard for authenticated student."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(student_user.id)
-        
+            sess["_user_id"] = str(student_user.id)
+
         response = client.get("/student")
         assert response.status_code == 200
 
@@ -158,8 +155,8 @@ class TestViewRoutes:
     def test_profile_page_authenticated(self, client, student_user):
         """Test profile page for authenticated user."""
         with client.session_transaction() as sess:
-            sess['_user_id'] = str(student_user.id)
-        
+            sess["_user_id"] = str(student_user.id)
+
         response = client.get("/profile")
         assert response.status_code == 200
 

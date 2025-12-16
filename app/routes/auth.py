@@ -26,10 +26,10 @@ def register():
     name_parts = data["name"].strip().split(maxsplit=1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
-    
+
     # Generate username from email
     username = data["email"].split("@")[0]
-    
+
     # Make username unique if it already exists
     base_username = username
     counter = 1

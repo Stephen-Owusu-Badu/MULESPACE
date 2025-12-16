@@ -27,9 +27,9 @@ def get_events():
     if search:
         search_pattern = f"%{search}%"
         query = query.filter(
-            (Event.title.ilike(search_pattern)) |
-            (Event.description.ilike(search_pattern)) |
-            (Event.location.ilike(search_pattern))
+            (Event.title.ilike(search_pattern))
+            | (Event.description.ilike(search_pattern))
+            | (Event.location.ilike(search_pattern))
         )
 
     # Apply filters
@@ -85,15 +85,16 @@ def get_event(event_id):
 def create_event():
     """Create a new event."""
     import os
+
     from werkzeug.utils import secure_filename
-    
+
     # Handle both JSON and FormData
     if request.is_json:
         data = request.get_json()
         flier_file = None
     else:
         data = request.form.to_dict()
-        flier_file = request.files.get('flier')
+        flier_file = request.files.get("flier")
 
     # Validation
     required_fields = ["title", "start_time", "end_time", "department_id"]
@@ -120,16 +121,16 @@ def create_event():
     flier_path = None
     if flier_file and flier_file.filename:
         # Create uploads directory if it doesn't exist
-        upload_dir = os.path.join('app', 'static', 'uploads', 'fliers')
+        upload_dir = os.path.join("app", "static", "uploads", "fliers")
         os.makedirs(upload_dir, exist_ok=True)
-        
+
         # Secure filename and save
         filename = secure_filename(flier_file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{filename}"
         file_path = os.path.join(upload_dir, filename)
         flier_file.save(file_path)
-        
+
         # Store relative path for web access
         flier_path = f"/static/uploads/fliers/{filename}"
 
@@ -239,28 +240,37 @@ def get_event_registrations(event_id):
         return jsonify({"error": "Event not found"}), 404
 
     # Check permission for department admins
-    if current_user.role == "department_admin" and event.department_id != current_user.department_id:
+    if (
+        current_user.role == "department_admin"
+        and event.department_id != current_user.department_id
+    ):
         return jsonify({"error": "Unauthorized"}), 403
 
     # Get all attendance records for this event
-    attendances = Attendance.query.filter_by(event_id=event_id).join(User).order_by(Attendance.checked_in_at.desc()).all()
+    attendances = (
+        Attendance.query.filter_by(event_id=event_id)
+        .join(User)
+        .order_by(Attendance.checked_in_at.desc())
+        .all()
+    )
 
     registrations = []
     for attendance in attendances:
         user = attendance.user
-        registrations.append({
-            "id": attendance.id,
-            "user_id": user.id,
-            "user_name": f"{user.first_name} {user.last_name}",
-            "user_email": user.email,
-            "checked_in_at": attendance.checked_in_at.isoformat() if attendance.checked_in_at else None,
-            "check_in_method": attendance.check_in_method
-        })
+        registrations.append(
+            {
+                "id": attendance.id,
+                "user_id": user.id,
+                "user_name": f"{user.first_name} {user.last_name}",
+                "user_email": user.email,
+                "checked_in_at": attendance.checked_in_at.isoformat()
+                if attendance.checked_in_at
+                else None,
+                "check_in_method": attendance.check_in_method,
+            }
+        )
 
-    return jsonify({
-        "registrations": registrations,
-        "total": len(registrations)
-    }), 200
+    return jsonify({"registrations": registrations, "total": len(registrations)}), 200
 
 
 @events_bp.route("/<int:event_id>/register", methods=["POST"])
@@ -269,48 +279,44 @@ def get_event_registrations(event_id):
 def register_for_event(event_id):
     """Register current user for an event."""
     from app.email import send_registration_confirmation
-    
+
     event = db.session.get(Event, event_id)
     if not event:
         return jsonify({"error": "Event not found"}), 404
-    
+
     if not event.is_active:
         return jsonify({"error": "Event is not active"}), 400
-    
+
     # Check if already registered
-    existing = Attendance.query.filter_by(
-        event_id=event_id,
-        user_id=current_user.id
-    ).first()
-    
+    existing = Attendance.query.filter_by(event_id=event_id, user_id=current_user.id).first()
+
     if existing:
         return jsonify({"error": "Already registered for this event"}), 409
-    
+
     # Check capacity
     registered_count = Attendance.query.filter_by(event_id=event_id).count()
     if event.max_capacity and registered_count >= event.max_capacity:
         return jsonify({"error": "Event is full"}), 400
-    
+
     # Create attendance record
-    attendance = Attendance(
-        event_id=event_id,
-        user_id=current_user.id
-    )
-    
+    attendance = Attendance(event_id=event_id, user_id=current_user.id)
+
     db.session.add(attendance)
     db.session.commit()
-    
+
     # Send confirmation email
     try:
         send_registration_confirmation(current_user, event)
     except Exception as e:
         # Log the error but don't fail the registration
         print(f"Failed to send confirmation email: {str(e)}")
-    
-    return jsonify({
-        "message": "Successfully registered for event",
-        "attendance": attendance.to_dict()
-    }), 201
+
+    return (
+        jsonify(
+            {"message": "Successfully registered for event", "attendance": attendance.to_dict()}
+        ),
+        201,
+    )
 
 
 @events_bp.route("/<int:event_id>/attendees", methods=["GET"])
@@ -339,23 +345,22 @@ def get_event_qr_code(event_id):
     event = db.session.get(Event, event_id)
     if not event:
         return jsonify({"error": "Event not found"}), 404
-    
+
     # Check permission - only admins and department admins can generate QR codes
     if current_user.role not in ["admin", "department_admin"]:
         return jsonify({"error": "Unauthorized"}), 403
-    
+
     if (
         current_user.role == "department_admin"
         and event.department_id != current_user.department_id
     ):
         return jsonify({"error": "Unauthorized to generate QR code for this event"}), 403
-    
+
     # Generate QR code with event information
     qr_data = f"MULESPACE:EVENT:{event_id}"
     qr_code_base64 = generate_qr_code(qr_data)
-    
-    return jsonify({
-        "qr_code": qr_code_base64,
-        "event_id": event_id,
-        "event_title": event.title
-    }), 200
+
+    return (
+        jsonify({"qr_code": qr_code_base64, "event_id": event_id, "event_title": event.title}),
+        200,
+    )

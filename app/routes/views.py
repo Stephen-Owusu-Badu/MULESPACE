@@ -1,8 +1,8 @@
 """
 View routes for rendering HTML templates.
 """
-from flask import Blueprint, render_template, redirect, url_for
-from flask_login import login_required, current_user
+from flask import Blueprint, redirect, render_template, url_for
+from flask_login import current_user, login_required
 
 views_bp = Blueprint("views", __name__)
 
@@ -11,7 +11,7 @@ views_bp = Blueprint("views", __name__)
 def index():
     """Homepage - redirects based on user role."""
     if current_user.is_authenticated:
-        if current_user.role in ['admin', 'department_admin']:
+        if current_user.role in ["admin", "department_admin"]:
             return redirect(url_for("views.admin_dashboard"))
         else:
             return redirect(url_for("views.student_dashboard"))
@@ -31,6 +31,7 @@ def login():
 def logout():
     """Logout user and redirect to login page."""
     from flask_login import logout_user
+
     logout_user()
     return redirect(url_for("views.login"))
 
@@ -73,7 +74,7 @@ def my_events():
 @login_required
 def admin_dashboard():
     """Admin dashboard - requires admin role."""
-    if current_user.role not in ['admin', 'department_admin']:
+    if current_user.role not in ["admin", "department_admin"]:
         return redirect(url_for("views.student_dashboard"))
     return render_template("admin.html")
 

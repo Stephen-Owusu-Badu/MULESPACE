@@ -238,16 +238,14 @@ class TestAdminRoutes:
     def test_update_user_email(self, admin_client, student_user):
         """Test updating user email."""
         response = admin_client.put(
-            f"/api/admin/users/{student_user.id}",
-            json={"email": "newemail@test.com"}
+            f"/api/admin/users/{student_user.id}", json={"email": "newemail@test.com"}
         )
         assert response.status_code == 200
 
     def test_update_user_role(self, admin_client, student_user):
         """Test updating user role."""
         response = admin_client.put(
-            f"/api/admin/users/{student_user.id}",
-            json={"role": "department_admin"}
+            f"/api/admin/users/{student_user.id}", json={"role": "department_admin"}
         )
         assert response.status_code == 200
 
@@ -255,7 +253,7 @@ class TestAdminRoutes:
         """Test creating department with description."""
         response = admin_client.post(
             "/api/admin/departments",
-            json={"name": "New Department", "description": "New Description"}
+            json={"name": "New Department", "description": "New Description"},
         )
         assert response.status_code == 201
 

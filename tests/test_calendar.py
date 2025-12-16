@@ -177,8 +177,10 @@ class TestCalendarRoutes:
         response = admin_client.delete(f"/api/calendar/events/{event.id}")
         assert response.status_code == 200
 
-    def test_get_calendar_events_endpoint(self, authenticated_client, event):
-        """Test /api/calendar/events endpoint."""
+    def test_get_calendar_events_endpoint_details(
+        self, authenticated_client, event
+    ):
+        """Test /api/calendar/events endpoint with event details."""
         response = authenticated_client.get("/api/calendar/events")
         assert response.status_code == 200
         data = response.get_json()
@@ -198,8 +200,8 @@ class TestCalendarRoutes:
             json={
                 "start_time": event.start_time.isoformat(),
                 "end_time": event.end_time.isoformat(),
-                "exclude_event_id": event.id
-            }
+                "exclude_event_id": event.id,
+            },
         )
         assert response.status_code == 200
 

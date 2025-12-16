@@ -243,7 +243,7 @@ class TestAttendanceRoutes:
                 "event_id": event.id,
                 "full_name": "Test Student",
                 "email": "student@test.com",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code in [200, 201]
@@ -264,7 +264,7 @@ class TestAttendanceRoutes:
                 "event_id": event.id,
                 "full_name": "John Doe",
                 "email": "invalid-email",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code in [400, 201]
@@ -294,7 +294,9 @@ class TestAttendanceRoutes:
         response = admin_client.get("/api/attendance/export/99999")
         assert response.status_code == 404
 
-    def test_get_attendance_status_for_registered_event(self, authenticated_client, event, student_user):
+    def test_get_attendance_status_for_registered_event(
+        self, authenticated_client, event, student_user
+    ):
         """Test getting attendance status when registered."""
         att = Attendance(event_id=event.id, user_id=student_user.id)
         db.session.add(att)
@@ -321,7 +323,7 @@ class TestAttendanceRoutes:
                 "event_id": event.id,
                 "full_name": "Test Student",
                 "email": "student@test.com",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code in [200, 201]
@@ -335,10 +337,10 @@ class TestAttendanceRoutes:
                 "event_id": event.id,
                 "full_name": "Test Student",
                 "email": "student@test.com",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
-        
+
         # Duplicate check-in
         response = client.post(
             "/api/attendance/check-in-form",
@@ -346,7 +348,7 @@ class TestAttendanceRoutes:
                 "event_id": event.id,
                 "full_name": "Test Student",
                 "email": "student@test.com",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code in [400, 409]
@@ -354,6 +356,7 @@ class TestAttendanceRoutes:
     def test_check_in_form_inactive_event(self, client, event, department):
         """Test check-in form with inactive event."""
         from app import db
+
         event.is_active = False
         db.session.commit()
 
@@ -363,7 +366,7 @@ class TestAttendanceRoutes:
                 "event_id": event.id,
                 "full_name": "Test User",
                 "email": "test@example.com",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code == 400
@@ -376,7 +379,7 @@ class TestAttendanceRoutes:
                 "event_id": 99999,
                 "full_name": "Test User",
                 "email": "test@example.com",
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code == 404
@@ -389,14 +392,15 @@ class TestAttendanceRoutes:
 
     def test_export_attendance_wrong_department(self, dept_admin_client, admin_user, department):
         """Test department admin cannot export attendance for other department's event."""
-        from app.models import Event, Department
         from datetime import datetime, timedelta
-        
+
+        from app.models import Department, Event
+
         # Create event in a different department
         other_dept = Department(name="Other Department")
         db.session.add(other_dept)
         db.session.commit()
-        
+
         other_event = Event(
             title="Other Event",
             start_time=datetime.utcnow() + timedelta(hours=1),
@@ -406,6 +410,6 @@ class TestAttendanceRoutes:
         )
         db.session.add(other_event)
         db.session.commit()
-        
+
         response = dept_admin_client.get(f"/api/attendance/export/{other_event.id}")
         assert response.status_code == 403

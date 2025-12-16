@@ -1,11 +1,12 @@
-from flask import Blueprint, jsonify, request, render_template, make_response
-from flask_login import current_user, login_required
-from datetime import datetime
 import csv
 import io
+from datetime import datetime
+
+from flask import Blueprint, jsonify, make_response, request
+from flask_login import current_user, login_required
 
 from app import db
-from app.models import Attendance, Event, User, Department
+from app.models import Attendance, Department, Event, User
 
 attendance_bp = Blueprint("attendance", __name__)
 
@@ -30,7 +31,7 @@ def check_in():
 
     # Check if attendance record exists
     existing = Attendance.query.filter_by(event_id=event.id, user_id=current_user.id).first()
-    
+
     if existing:
         return jsonify({"error": "Already checked in to this event"}), 409
 
@@ -44,7 +45,7 @@ def check_in():
     attendance = Attendance(
         event_id=event.id,
         user_id=current_user.id,
-        check_in_method=data.get("check_in_method", "qr_code")
+        check_in_method=data.get("check_in_method", "qr_code"),
     )
 
     db.session.add(attendance)
@@ -185,12 +186,12 @@ def check_in_form():
     """Process check-in form submission (public endpoint for QR code check-ins)."""
     data = request.get_json()
 
-    required_fields = ['event_id', 'full_name', 'email', 'department_id']
+    required_fields = ["event_id", "full_name", "email", "department_id"]
     for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"{field.replace('_', ' ').title()} is required"}), 400
 
-    event = db.session.get(Event, data['event_id'])
+    event = db.session.get(Event, data["event_id"])
     if not event:
         return jsonify({"error": "Event not found"}), 404
 
@@ -202,22 +203,18 @@ def check_in_form():
     # For form submissions, we store data differently
     # We'll create an attendance record and store form data in a separate table
     # For now, we'll use the existing Attendance model
-    
+
     # Try to find user by email
-    user = User.query.filter_by(email=data['email']).first()
-    
+    user = User.query.filter_by(email=data["email"]).first()
+
     if user:
         # Existing user - check if already checked in
         existing = Attendance.query.filter_by(event_id=event.id, user_id=user.id).first()
         if existing:
             return jsonify({"error": "You have already checked in to this event"}), 409
-        
+
         # Create attendance record
-        attendance = Attendance(
-            event_id=event.id,
-            user_id=user.id,
-            check_in_method='qr_form'
-        )
+        attendance = Attendance(event_id=event.id, user_id=user.id, check_in_method="qr_form")
     else:
         # Guest check-in (no user account) - we'll still record it
         # For now, we'll skip this and require users to have accounts
@@ -226,10 +223,7 @@ def check_in_form():
     db.session.add(attendance)
     db.session.commit()
 
-    return jsonify({
-        "message": "Check-in successful",
-        "attendance": attendance.to_dict()
-    }), 201
+    return jsonify({"message": "Check-in successful", "attendance": attendance.to_dict()}), 201
 
 
 @attendance_bp.route("/export/<int:event_id>", methods=["GET"])
@@ -244,44 +238,55 @@ def export_attendance(event_id):
         return jsonify({"error": "Event not found"}), 404
 
     # Check permission
-    if current_user.role == "department_admin" and event.department_id != current_user.department_id:
+    if (
+        current_user.role == "department_admin"
+        and event.department_id != current_user.department_id
+    ):
         return jsonify({"error": "Unauthorized"}), 403
 
     # Get all attendance records for this event
-    attendances = Attendance.query.filter_by(event_id=event_id).join(User).order_by(Attendance.checked_in_at).all()
+    attendances = (
+        Attendance.query.filter_by(event_id=event_id)
+        .join(User)
+        .order_by(Attendance.checked_in_at)
+        .all()
+    )
 
     # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
-    
+
     # Write header
-    writer.writerow([
-        'Full Name',
-        'Email',
-        'Student ID',
-        'Department',
-        'Check-in Time',
-        'Check-in Method'
-    ])
+    writer.writerow(
+        ["Full Name", "Email", "Student ID", "Department", "Check-in Time", "Check-in Method"]
+    )
 
     # Write data rows
     for attendance in attendances:
         user = attendance.user
-        department = Department.query.get(user.department_id) if user.department_id else None
-        
-        writer.writerow([
-            f"{user.first_name} {user.last_name}",
-            user.email,
-            user.username,  # Using username as student ID
-            department.name if department else 'N/A',
-            attendance.checked_in_at.strftime('%Y-%m-%d %H:%M:%S') if attendance.checked_in_at else 'N/A',
-            attendance.check_in_method or 'N/A'
-        ])
+        department = db.session.get(Department, user.department_id) if user.department_id else None
+
+        writer.writerow(
+            [
+                f"{user.first_name} {user.last_name}",
+                user.email,
+                user.username,  # Using username as student ID
+                department.name if department else "N/A",
+                attendance.checked_in_at.strftime("%Y-%m-%d %H:%M:%S")
+                if attendance.checked_in_at
+                else "N/A",
+                attendance.check_in_method or "N/A",
+            ]
+        )
 
     # Prepare response
     output.seek(0)
     response = make_response(output.getvalue())
-    response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename=attendance_{event.title.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.csv'
-    
+    response.headers["Content-Type"] = "text/csv"
+    filename = (
+        f'attendance_{event.title.replace(" ", "_")}_'
+        f'{datetime.now().strftime("%Y%m%d")}.csv'
+    )
+    response.headers["Content-Disposition"] = f'attachment; filename={filename}'
+
     return response

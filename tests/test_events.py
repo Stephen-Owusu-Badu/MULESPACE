@@ -290,38 +290,26 @@ class TestEventRoutes:
 
     def test_register_for_event_success(self, authenticated_client, event):
         """Test successful event registration."""
-        response = authenticated_client.post(
-            f"/api/events/{event.id}/register",
-            json={}
-        )
+        response = authenticated_client.post(f"/api/events/{event.id}/register", json={})
         assert response.status_code in [200, 201]
 
     def test_register_for_event_via_registrations_endpoint(self, authenticated_client, event):
         """Test registration via REST-compliant endpoint."""
-        response = authenticated_client.post(
-            f"/api/events/{event.id}/registrations",
-            json={}
-        )
+        response = authenticated_client.post(f"/api/events/{event.id}/registrations", json={})
         assert response.status_code in [200, 201]
 
     def test_register_for_event_not_found(self, authenticated_client):
         """Test registering for non-existent event."""
-        response = authenticated_client.post(
-            "/api/events/99999/register",
-            json={}
-        )
+        response = authenticated_client.post("/api/events/99999/register", json={})
         assert response.status_code == 404
 
     def test_register_for_event_duplicate(self, authenticated_client, event, student_user):
         """Test duplicate registration."""
         # First registration
         authenticated_client.post(f"/api/events/{event.id}/register", json={})
-        
+
         # Duplicate registration
-        response = authenticated_client.post(
-            f"/api/events/{event.id}/register",
-            json={}
-        )
+        response = authenticated_client.post(f"/api/events/{event.id}/register", json={})
         assert response.status_code in [200, 400, 409]
 
     def test_get_event_registrations_as_admin(self, admin_client, event, student_user):
@@ -378,7 +366,7 @@ class TestEventRoutes:
                 "title": "Event with Flier",
                 "start_time": start_time,
                 "end_time": end_time,
-                "department_id": department.id
+                "department_id": department.id,
             },
         )
         assert response.status_code == 201
@@ -387,10 +375,7 @@ class TestEventRoutes:
 
     def test_update_event_capacity(self, admin_client, event):
         """Test updating event capacity."""
-        response = admin_client.put(
-            f"/api/events/{event.id}",
-            json={"max_capacity": 200}
-        )
+        response = admin_client.put(f"/api/events/{event.id}", json={"max_capacity": 200})
         assert response.status_code == 200
         data = response.get_json()
         assert data["event"]["max_capacity"] == 200
@@ -412,10 +397,7 @@ class TestEventRoutes:
         # Event starts at +1 day, ends at +1 day +2 hours
         # Move start to +1 day +1 hour (still before end)
         new_start = (datetime.utcnow() + timedelta(days=1, hours=1)).isoformat()
-        response = admin_client.put(
-            f"/api/events/{event.id}",
-            json={"start_time": new_start}
-        )
+        response = admin_client.put(f"/api/events/{event.id}", json={"start_time": new_start})
         assert response.status_code == 200
 
     def test_update_event_end_time_only(self, admin_client, event):
@@ -423,10 +405,7 @@ class TestEventRoutes:
         # Event starts at +1 day, ends at +1 day +2 hours
         # Move end to +1 day +3 hours (still after start)
         new_end = (datetime.utcnow() + timedelta(days=1, hours=3)).isoformat()
-        response = admin_client.put(
-            f"/api/events/{event.id}",
-            json={"end_time": new_end}
-        )
+        response = admin_client.put(f"/api/events/{event.id}", json={"end_time": new_end})
         assert response.status_code == 200
 
     def test_create_event_with_all_fields(self, admin_client, department):
@@ -444,7 +423,7 @@ class TestEventRoutes:
                 "end_time": end_time,
                 "max_capacity": 50,
                 "department_id": department.id,
-                "flier_path": "/uploads/flier.png"
+                "flier_path": "/uploads/flier.png",
             },
         )
         assert response.status_code == 201
@@ -452,16 +431,14 @@ class TestEventRoutes:
     def test_update_event_times_with_invalid_format(self, admin_client, event):
         """Test updating event with invalid time format."""
         response = admin_client.put(
-            f"/api/events/{event.id}",
-            json={"start_time": "not-a-valid-date"}
+            f"/api/events/{event.id}", json={"start_time": "not-a-valid-date"}
         )
         assert response.status_code == 400
 
     def test_update_event_flier_path(self, admin_client, event):
         """Test updating event flier path."""
         response = admin_client.put(
-            f"/api/events/{event.id}",
-            json={"flier_path": "/uploads/new-flier.png"}
+            f"/api/events/{event.id}", json={"flier_path": "/uploads/new-flier.png"}
         )
         assert response.status_code == 200
 
@@ -483,8 +460,7 @@ class TestEventRoutes:
     def test_update_event_description(self, admin_client, event):
         """Test updating event description."""
         response = admin_client.put(
-            f"/api/events/{event.id}",
-            json={"description": "Updated description"}
+            f"/api/events/{event.id}", json={"description": "Updated description"}
         )
         assert response.status_code == 200
 
@@ -507,7 +483,7 @@ class TestEventRoutes:
         """Test registering for inactive event."""
         event.is_active = False
         db.session.commit()
-        
+
         response = authenticated_client.post(f"/api/events/{event.id}/register")
         assert response.status_code == 400
 
@@ -515,12 +491,12 @@ class TestEventRoutes:
         """Test registering for full event."""
         event.max_capacity = 1
         db.session.commit()
-        
+
         # Fill the event with a different user
         att = Attendance(event_id=event.id, user_id=admin_user.id)
         db.session.add(att)
         db.session.commit()
-        
+
         # authenticated_client is logged in as student_user, try to register
         response = authenticated_client.post(f"/api/events/{event.id}/register")
         assert response.status_code == 400
@@ -528,12 +504,12 @@ class TestEventRoutes:
     def test_get_registrations_wrong_department(self, dept_admin_client, admin_user, department):
         """Test department admin cannot get registrations for other department's event."""
         from app.models import Department, Event
-        
+
         # Create event in different department
         other_dept = Department(name="Other Dept")
         db.session.add(other_dept)
         db.session.commit()
-        
+
         other_event = Event(
             title="Other Event",
             start_time=datetime.utcnow() + timedelta(hours=1),
@@ -543,19 +519,19 @@ class TestEventRoutes:
         )
         db.session.add(other_event)
         db.session.commit()
-        
+
         response = dept_admin_client.get(f"/api/events/{other_event.id}/registrations")
         assert response.status_code == 403
 
     def test_generate_qr_code_wrong_department(self, dept_admin_client, admin_user):
         """Test department admin cannot generate QR for other department's event."""
         from app.models import Department, Event
-        
+
         # Create event in different department
         other_dept = Department(name="Another Dept")
         db.session.add(other_dept)
         db.session.commit()
-        
+
         other_event = Event(
             title="Another Event",
             start_time=datetime.utcnow() + timedelta(hours=1),
@@ -565,7 +541,7 @@ class TestEventRoutes:
         )
         db.session.add(other_event)
         db.session.commit()
-        
+
         response = dept_admin_client.get(f"/api/events/{other_event.id}/qr-code")
         assert response.status_code == 403
 
@@ -573,7 +549,7 @@ class TestEventRoutes:
         """Test creating event with form data (not JSON)."""
         start_time = (datetime.utcnow() + timedelta(days=2)).isoformat()
         end_time = (datetime.utcnow() + timedelta(days=2, hours=2)).isoformat()
-        
+
         # Use form data instead of JSON
         response = admin_client.post(
             "/api/events",
@@ -590,9 +566,10 @@ class TestEventRoutes:
     def test_create_event_with_file_upload(self, admin_client, department):
         """Test creating event with file upload."""
         from io import BytesIO
+
         start_time = (datetime.utcnow() + timedelta(days=2)).isoformat()
         end_time = (datetime.utcnow() + timedelta(days=2, hours=2)).isoformat()
-        
+
         # Create a fake image file
         data = {
             "title": "Event with File",
@@ -601,7 +578,7 @@ class TestEventRoutes:
             "department_id": str(department.id),
             "flier": (BytesIO(b"fake image content"), "test_flier.png"),
         }
-        
+
         response = admin_client.post(
             "/api/events",
             data=data,
@@ -615,13 +592,13 @@ class TestEventRoutes:
     def test_register_event_email_failure(self, authenticated_client, event, monkeypatch):
         """Test event registration succeeds even if email fails."""
         import app.email
-        
+
         # Mock send_registration_confirmation to raise exception
         def mock_send_email(*args, **kwargs):
             raise Exception("Email service unavailable")
-        
+
         monkeypatch.setattr(app.email, "send_registration_confirmation", mock_send_email)
-        
+
         response = authenticated_client.post(f"/api/events/{event.id}/register")
         # Registration should succeed despite email failure
         assert response.status_code == 201
