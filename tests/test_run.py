@@ -33,8 +33,8 @@ class TestRunPy:
 
     def test_run_py_uses_environment_config(self, monkeypatch):
         """Test that run.py respects FLASK_ENV environment variable."""
-        import sys
         import importlib
+        import sys
 
         monkeypatch.setenv("FLASK_ENV", "testing")
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
@@ -47,8 +47,8 @@ class TestRunPy:
 
     def test_run_py_defaults_to_development(self, monkeypatch):
         """Test that run.py defaults to development config."""
-        import sys
         import importlib
+        import sys
 
         os.environ.pop("FLASK_ENV", None)
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
