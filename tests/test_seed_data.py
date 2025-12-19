@@ -270,12 +270,7 @@ class TestCreateAttendance:
 
     def test_create_attendance_creates_records(self, app):
         """Test that create_attendance creates attendance records."""
-        from seed_data import (
-            create_attendance,
-            create_departments,
-            create_events,
-            create_users,
-        )
+        from seed_data import create_attendance, create_departments, create_events, create_users
 
         with app.app_context():
             departments = create_departments()
@@ -288,12 +283,7 @@ class TestCreateAttendance:
 
     def test_create_attendance_links_users_and_events(self, app):
         """Test that attendance records link users to events."""
-        from seed_data import (
-            create_attendance,
-            create_departments,
-            create_events,
-            create_users,
-        )
+        from seed_data import create_attendance, create_departments, create_events, create_users
 
         with app.app_context():
             departments = create_departments()
@@ -307,12 +297,7 @@ class TestCreateAttendance:
 
     def test_create_attendance_uses_student_users(self, app):
         """Test that attendance is created for student users."""
-        from seed_data import (
-            create_attendance,
-            create_departments,
-            create_events,
-            create_users,
-        )
+        from seed_data import create_attendance, create_departments, create_events, create_users
 
         with app.app_context():
             departments = create_departments()
@@ -346,12 +331,7 @@ class TestSeedDataMain:
 
     def test_main_integrates_all_functions(self, app):
         """Test that main function integrates all seeding functions."""
-        from seed_data import (
-            create_attendance,
-            create_departments,
-            create_events,
-            create_users,
-        )
+        from seed_data import create_attendance, create_departments, create_events, create_users
 
         # Test that we can run the full sequence
         with app.app_context():

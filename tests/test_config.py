@@ -2,7 +2,6 @@
 
 import os
 
-
 from config import Config, DevelopmentConfig, ProductionConfig, TestingConfig, config
 
 
@@ -101,6 +100,7 @@ class TestProductionConfig:
         os.environ["DATABASE_URL"] = "postgres://user:pass@host/db"
         # Need to reload the config
         import importlib
+
         import config as config_module
 
         importlib.reload(config_module)

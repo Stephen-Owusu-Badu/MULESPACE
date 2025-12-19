@@ -82,8 +82,9 @@ class TestRunPy:
 
     def test_run_py_app_is_flask_instance(self):
         """Test that app is a Flask instance."""
-        import run
         from flask import Flask
+
+        import run
 
         assert isinstance(run.app, Flask)
 
