@@ -69,7 +69,7 @@ class TestRunPy:
     def test_run_py_default_port(self):
         """Default port should be 5000."""
         os.environ.pop("PORT", None)
-        run = reload_run()
+        reload_run()
         assert int(os.environ.get("PORT", 5000)) == 5000
 
     def test_run_py_app_is_flask_instance(self):
