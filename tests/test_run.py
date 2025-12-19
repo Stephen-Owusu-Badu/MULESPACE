@@ -2,6 +2,7 @@
 
 import os
 from unittest.mock import patch
+
 os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
 
 
