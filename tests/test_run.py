@@ -117,6 +117,7 @@ class TestRunPy:
             del sys.modules["run"]
 
         import run
+
         importlib.reload(run)
 
         # After reload, config_name should be set from env
