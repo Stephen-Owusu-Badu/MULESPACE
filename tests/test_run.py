@@ -7,50 +7,57 @@ from unittest.mock import patch
 class TestRunPy:
     """Test run.py application entry point."""
 
-    def test_run_py_imports(self):
+    def test_run_py_imports(self, monkeypatch):
         """Test that run.py can be imported without errors."""
+        import sys
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+        if "run" in sys.modules:
+            del sys.modules["run"]
         import run
-
         assert run is not None
 
-    def test_run_py_creates_app(self):
+    def test_run_py_creates_app(self, monkeypatch):
         """Test that run.py creates Flask app."""
+        import sys
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+        if "run" in sys.modules:
+            del sys.modules["run"]
         import run
-
         assert run.app is not None
         assert hasattr(run.app, "run")
         assert hasattr(run.app, "config")
 
     def test_run_py_uses_environment_config(self, monkeypatch):
         """Test that run.py respects FLASK_ENV environment variable."""
-        monkeypatch.setenv("FLASK_ENV", "testing")
-
-        # Reimport to pick up new env var
+        import sys
         import importlib
-
+        monkeypatch.setenv("FLASK_ENV", "testing")
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+        if "run" in sys.modules:
+            del sys.modules["run"]
         import run
-
         importlib.reload(run)
-
         assert run.config_name == "testing"
 
-    def test_run_py_defaults_to_development(self):
+    def test_run_py_defaults_to_development(self, monkeypatch):
         """Test that run.py defaults to development config."""
-        # Clear FLASK_ENV if it exists
-        os.environ.pop("FLASK_ENV", None)
-
+        import sys
         import importlib
-
+        os.environ.pop("FLASK_ENV", None)
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+        if "run" in sys.modules:
+            del sys.modules["run"]
         import run
-
         importlib.reload(run)
-
         assert run.config_name == "development"
 
-    def test_run_py_app_has_correct_config(self):
+    def test_run_py_app_has_correct_config(self, monkeypatch):
         """Test that app is created with correct configuration."""
+        import sys
+        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+        if "run" in sys.modules:
+            del sys.modules["run"]
         import run
-
         # Should be development or testing
         assert run.app.config["SQLALCHEMY_DATABASE_URI"] is not None
 
@@ -108,18 +115,12 @@ class TestRunPy:
         """Test config_name is correctly read from environment."""
         import importlib
         import sys
-
         monkeypatch.setenv("FLASK_ENV", "production")
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-
-        # Remove run from sys.modules if already imported
         if "run" in sys.modules:
             del sys.modules["run"]
-
         import run
-
         importlib.reload(run)
-
         # After reload, config_name should be set from env
         expected = os.environ.get("FLASK_ENV", "development")
         assert run.config_name == expected
