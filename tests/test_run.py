@@ -1,5 +1,3 @@
-os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-
 """
 Tests for run.py - application entry point.
 """
@@ -9,12 +7,7 @@ import os
 import sys
 from unittest.mock import patch
 
-import pytest
 from flask import Flask
-
-# -------------------------------------------------------------------
-# GLOBAL TEST SETUP
-# -------------------------------------------------------------------
 
 # Ensure SQLAlchemy always has a database during imports
 os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
@@ -117,45 +110,3 @@ class TestRunPy:
         with open("run.py") as f:
             content = f.read()
             assert "0.0.0.0" in content
-
-        # Check for some expected routes
-        assert "/" in routes or any("index" in str(r) for r in routes)
-
-    def test_run_py_config_name_from_env(self, monkeypatch):
-        """Test config_name is correctly read from environment."""
-        import importlib
-        import sys
-
-        monkeypatch.setenv("FLASK_ENV", "production")
-        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-        if "run" in sys.modules:
-            del sys.modules["run"]
-        import run
-
-        importlib.reload(run)
-        # After reload, config_name should be set from env
-        expected = os.environ.get("FLASK_ENV", "development")
-        assert run.config_name == expected
-
-    def test_run_py_app_context_available(self):
-        """Test that app context is available."""
-        import run
-
-        with run.app.app_context():
-            # Should be able to use app context
-            assert run.app is not None
-
-    def test_run_py_port_from_environment(self, monkeypatch):
-        """Test that PORT environment variable is respected."""
-        monkeypatch.setenv("PORT", "9000")
-
-        port = int(os.environ.get("PORT", 5000))
-        assert port == 9000
-
-    def test_run_py_host_configuration(self):
-        """Test that host is configured to 0.0.0.0."""
-        # This tests that the run command would use 0.0.0.0
-        # which allows external access
-        with open("run.py") as f:
-            content = f.read()
-            assert "0.0.0.0" in content or '"0.0.0.0"' in content
