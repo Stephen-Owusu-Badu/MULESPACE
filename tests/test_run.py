@@ -106,13 +106,17 @@ class TestRunPy:
 
     def test_run_py_config_name_from_env(self, monkeypatch):
         """Test config_name is correctly read from environment."""
+        import sys
+        import importlib
+
         monkeypatch.setenv("FLASK_ENV", "production")
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
 
-        import importlib
+        # Remove run from sys.modules if already imported
+        if "run" in sys.modules:
+            del sys.modules["run"]
 
         import run
-
         importlib.reload(run)
 
         # After reload, config_name should be set from env
