@@ -7,6 +7,7 @@ import os
 import sys
 from unittest.mock import patch
 
+import pytest
 from flask import Flask
 
 # Ensure SQLAlchemy always has a database during imports
@@ -22,20 +23,23 @@ def reload_run():
     return importlib.reload(run)
 
 
+@pytest.fixture(scope="module")
+def app():
+    return reload_run().app
+
+
 class TestRunPy:
     """Test run.py application entry point."""
 
     def test_run_py_imports(self):
         """run.py should import without errors."""
-        run = reload_run()
-        assert run is not None
+        assert reload_run() is not None
 
-    def test_run_py_creates_app(self):
+    def test_run_py_creates_app(self, app):
         """run.py should create a Flask app."""
-        run = reload_run()
-        assert run.app is not None
-        assert hasattr(run.app, "run")
-        assert hasattr(run.app, "config")
+        assert app is not None
+        assert hasattr(app, "run")
+        assert hasattr(app, "config")
 
     def test_run_py_uses_environment_config(self, monkeypatch):
         """FLASK_ENV should control config_name."""
@@ -49,20 +53,17 @@ class TestRunPy:
         run = reload_run()
         assert run.config_name == "development"
 
-    def test_run_py_app_has_database_config(self):
+    def test_run_py_app_has_database_config(self, app):
         """App must have a database URI configured."""
-        run = reload_run()
-        assert run.app.config["SQLALCHEMY_DATABASE_URI"] is not None
+        assert app.config["SQLALCHEMY_DATABASE_URI"] is not None
 
     @patch("run.app.run")
     def test_run_py_main_block(self, mock_run):
         """__main__ block should call app.run()."""
         os.environ["PORT"] = "8080"
-
         with open("run.py") as f:
             code = compile(f.read(), "run.py", "exec")
             exec(code, {"__name__": "__main__"})
-
         mock_run.assert_called_once()
         os.environ.pop("PORT", None)
 
@@ -72,20 +73,17 @@ class TestRunPy:
         reload_run()
         assert int(os.environ.get("PORT", 5000)) == 5000
 
-    def test_run_py_app_is_flask_instance(self):
+    def test_run_py_app_is_flask_instance(self, app):
         """App should be a Flask instance."""
-        run = reload_run()
-        assert isinstance(run.app, Flask)
+        assert isinstance(app, Flask)
 
-    def test_run_py_app_has_blueprints(self):
+    def test_run_py_app_has_blueprints(self, app):
         """App should register at least one blueprint."""
-        run = reload_run()
-        assert len(run.app.blueprints) > 0
+        assert len(app.blueprints) > 0
 
-    def test_run_py_app_has_routes(self):
+    def test_run_py_app_has_routes(self, app):
         """App should have registered routes."""
-        run = reload_run()
-        routes = [rule.rule for rule in run.app.url_map.iter_rules()]
+        routes = [rule.rule for rule in app.url_map.iter_rules()]
         assert "/" in routes or any("index" in r for r in routes)
 
     def test_run_py_config_name_from_env(self, monkeypatch):
@@ -94,11 +92,10 @@ class TestRunPy:
         run = reload_run()
         assert run.config_name == "production"
 
-    def test_run_py_app_context_available(self):
+    def test_run_py_app_context_available(self, app):
         """App context should be usable."""
-        run = reload_run()
-        with run.app.app_context():
-            assert run.app is not None
+        with app.app_context():
+            assert app is not None
 
     def test_run_py_port_from_environment(self, monkeypatch):
         """PORT env var should be respected."""
