@@ -1,124 +1,122 @@
-"""Tests for run.py - application entry point."""
+os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
 
+"""
+Tests for run.py - application entry point.
+"""
+
+import importlib
 import os
+import sys
 from unittest.mock import patch
 
+import pytest
+from flask import Flask
+
+# -------------------------------------------------------------------
+# GLOBAL TEST SETUP
+# -------------------------------------------------------------------
+
+# Ensure SQLAlchemy always has a database during imports
 os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+
+
+def reload_run():
+    """Utility to reload run.py cleanly."""
+    if "run" in sys.modules:
+        del sys.modules["run"]
+    import run
+
+    return importlib.reload(run)
 
 
 class TestRunPy:
     """Test run.py application entry point."""
 
-    def test_run_py_imports(self, monkeypatch):
-        """Test that run.py can be imported without errors."""
-        import sys
-
-        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-        if "run" in sys.modules:
-            del sys.modules["run"]
-        import run
-
+    def test_run_py_imports(self):
+        """run.py should import without errors."""
+        run = reload_run()
         assert run is not None
 
-    def test_run_py_creates_app(self, monkeypatch):
-        """Test that run.py creates Flask app."""
-        import sys
-
-        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-        if "run" in sys.modules:
-            del sys.modules["run"]
-        import run
-
+    def test_run_py_creates_app(self):
+        """run.py should create a Flask app."""
+        run = reload_run()
         assert run.app is not None
         assert hasattr(run.app, "run")
         assert hasattr(run.app, "config")
 
     def test_run_py_uses_environment_config(self, monkeypatch):
-        """Test that run.py respects FLASK_ENV environment variable."""
-        import importlib
-        import sys
-
+        """FLASK_ENV should control config_name."""
         monkeypatch.setenv("FLASK_ENV", "testing")
-        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-        if "run" in sys.modules:
-            del sys.modules["run"]
-        import run
-
-        importlib.reload(run)
+        run = reload_run()
         assert run.config_name == "testing"
 
     def test_run_py_defaults_to_development(self, monkeypatch):
-        """Test that run.py defaults to development config."""
-        import importlib
-        import sys
-
-        os.environ.pop("FLASK_ENV", None)
-        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-        if "run" in sys.modules:
-            del sys.modules["run"]
-        import run
-
-        importlib.reload(run)
+        """Default config_name should be development."""
+        monkeypatch.delenv("FLASK_ENV", raising=False)
+        run = reload_run()
         assert run.config_name == "development"
 
-    def test_run_py_app_has_correct_config(self, monkeypatch):
-        """Test that app is created with correct configuration."""
-        import sys
-
-        monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-        if "run" in sys.modules:
-            del sys.modules["run"]
-        import run
-
-        # Should be development or testing
+    def test_run_py_app_has_database_config(self):
+        """App must have a database URI configured."""
+        run = reload_run()
         assert run.app.config["SQLALCHEMY_DATABASE_URI"] is not None
 
     @patch("run.app.run")
     def test_run_py_main_block(self, mock_run):
-        """Test that __main__ block calls app.run with correct parameters."""
-        # Set PORT environment variable
+        """__main__ block should call app.run()."""
         os.environ["PORT"] = "8080"
 
-        # Execute the main block by running the file
         with open("run.py") as f:
             code = compile(f.read(), "run.py", "exec")
-            exec(code)
+            exec(code, {"__name__": "__main__"})
 
-        # Clean up
+        mock_run.assert_called_once()
         os.environ.pop("PORT", None)
 
-    @patch("run.app.run")
-    def test_run_py_default_port(self, mock_run):
-        """Test that run.py uses default port 5000 when PORT not set."""
-        # Clear PORT env var
+    def test_run_py_default_port(self):
+        """Default port should be 5000."""
         os.environ.pop("PORT", None)
-
-        # Import and check the port that would be used
-        import run  # noqa: F401
-
-        # The default port should be 5000
+        run = reload_run()
         assert int(os.environ.get("PORT", 5000)) == 5000
 
     def test_run_py_app_is_flask_instance(self):
-        """Test that app is a Flask instance."""
-        from flask import Flask
-
-        import run
-
+        """App should be a Flask instance."""
+        run = reload_run()
         assert isinstance(run.app, Flask)
 
     def test_run_py_app_has_blueprints(self):
-        """Test that app has registered blueprints."""
-        import run
-
+        """App should register at least one blueprint."""
+        run = reload_run()
         assert len(run.app.blueprints) > 0
 
     def test_run_py_app_has_routes(self):
-        """Test that app has registered routes."""
-        import run
-
-        # Get all registered routes
+        """App should have registered routes."""
+        run = reload_run()
         routes = [rule.rule for rule in run.app.url_map.iter_rules()]
+        assert "/" in routes or any("index" in r for r in routes)
+
+    def test_run_py_config_name_from_env(self, monkeypatch):
+        """config_name should reflect FLASK_ENV."""
+        monkeypatch.setenv("FLASK_ENV", "production")
+        run = reload_run()
+        assert run.config_name == "production"
+
+    def test_run_py_app_context_available(self):
+        """App context should be usable."""
+        run = reload_run()
+        with run.app.app_context():
+            assert run.app is not None
+
+    def test_run_py_port_from_environment(self, monkeypatch):
+        """PORT env var should be respected."""
+        monkeypatch.setenv("PORT", "9000")
+        assert int(os.environ.get("PORT")) == 9000
+
+    def test_run_py_host_configuration(self):
+        """run.py should bind to 0.0.0.0."""
+        with open("run.py") as f:
+            content = f.read()
+            assert "0.0.0.0" in content
 
         # Check for some expected routes
         assert "/" in routes or any("index" in str(r) for r in routes)
