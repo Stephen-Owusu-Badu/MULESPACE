@@ -132,6 +132,7 @@ def create_users(departments):
             "Rodriguez",
             10,
         ),  # Environmental Studies
+        ("sowusu27@colby.edu", "sowusu27", "Stephen", "Owusu Badu", 2),  # CS
     ]
 
     for email, username, first_name, last_name, dept_idx in student_data:
@@ -144,12 +145,12 @@ def create_users(departments):
             department_id=departments[dept_idx].id,
             is_active=True,
         )
-        student.set_password("Student123!")
+        student.set_password("StudentColby!")
         db.session.add(student)
         users.append(student)
 
     db.session.commit()
-    print(f"✅ Created {len(users)} users (1 admin, 3 dept admins, 10 students)")
+    print(f" Created {len(users)} users (1 admin, 3 dept admins, 10 students)")
     return users
 
 
