@@ -342,7 +342,7 @@ class TestSeedDataMain:
 
             # Verify complete data was created
             assert len(departments) > 0
-            assert len(users) >= 14
+            assert len(users) >= 15
             assert len(events) > 0
             assert len(attendance) > 0
 
@@ -393,6 +393,6 @@ class TestSeedDataMain:
         # Check for summary section
         assert "Summary:" in output
         assert "18 departments" in output
-        assert "14 users" in output
+        assert "15 users" in output
         assert "9 events" in output
         assert "25 attendance records" in output
