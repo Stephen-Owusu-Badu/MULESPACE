@@ -26,7 +26,7 @@ def create_app(config_name="default"):
     CORS(app)
 
     # Login manager configuration
-    login_manager.login_view = "auth.login"
+    login_manager.login_view = "views.login"
     login_manager.login_message = "Please log in to access this page."
     login_manager.login_message_category = "info"
 
