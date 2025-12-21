@@ -150,7 +150,7 @@ def create_users(departments):
         users.append(student)
 
     db.session.commit()
-    print(f" Created {len(users)} users (1 admin, 3 dept admins, 10 students)")
+    print(f" Created {len(users)} users (1 admin, 3 dept admins, 11 students)")
     return users
 
 
