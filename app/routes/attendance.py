@@ -170,7 +170,8 @@ def check_in_form():
     required_fields = ["event_id", "full_name", "email", "department_id"]
     for field in required_fields:
         if not data.get(field):
-            return api_error(f"{field.replace('_', ' ').title()} is required", 400, code="MISSING_FIELD")
+            label = field.replace("_", " ").title()
+            return api_error(f"{label} is required", 400, code="MISSING_FIELD")
 
     event = db.session.get(Event, data["event_id"])
     if not event:
@@ -187,7 +188,11 @@ def check_in_form():
         # Existing user - check if already checked in
         existing = Attendance.query.filter_by(event_id=event.id, user_id=user.id).first()
         if existing:
-            return api_error("You have already checked in to this event", 409, code="ALREADY_REGISTERED")
+            return api_error(
+                "You have already checked in to this event",
+                409,
+                code="ALREADY_REGISTERED",
+            )
 
         # Create attendance record
         attendance = Attendance(event_id=event.id, user_id=user.id, check_in_method="qr_form")

@@ -85,7 +85,10 @@ def department_admin_event_forbidden(event) -> Optional[Tuple[Any, int]]:
     Returns:
         An api_error response tuple if forbidden, otherwise None.
     """
-    if current_user.role == "department_admin" and event.department_id != current_user.department_id:
+    if (
+        current_user.role == "department_admin"
+        and event.department_id != current_user.department_id
+    ):
         return api_error(
             "You do not have permission to manage this event for another department.",
             403,
