@@ -5,6 +5,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from app import db
+from app.http_utils import api_error, paginated_response
 from app.models import Attendance, Department, Event, User
 from app.utils import require_role
 
@@ -99,17 +100,10 @@ def get_all_users():
         page=page, per_page=per_page, error_out=False
     )
 
-    return (
-        jsonify(
-            {
-                "users": [user.to_dict() for user in pagination.items],
-                "total": pagination.total,
-                "page": page,
-                "per_page": per_page,
-                "pages": pagination.pages,
-            }
-        ),
-        200,
+    return paginated_response(
+        "users",
+        [user.to_dict() for user in pagination.items],
+        pagination,
     )
 
 
@@ -120,8 +114,10 @@ def update_user(user_id):
     """Update user details (admin only)."""
     user = db.session.get(User, user_id)
     if not user:
-        return jsonify({"error": "User not found"}), 404
-    data = request.get_json()
+        return api_error("User not found", 404, code="NOT_FOUND")
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     # Update allowed fields
     if "role" in data:
@@ -141,15 +137,17 @@ def update_user(user_id):
 @require_role(["admin"])
 def create_department():
     """Create a new department (admin only)."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     if not data.get("name"):
-        return jsonify({"error": "Department name required"}), 400
+        return api_error("Department name required", 400, code="MISSING_FIELD")
 
     # Check if exists
     existing = Department.query.filter_by(name=data["name"]).first()
     if existing:
-        return jsonify({"error": "Department already exists"}), 409
+        return api_error("Department already exists", 409, code="DUPLICATE")
 
     department = Department(
         name=data["name"],
@@ -173,8 +171,10 @@ def update_department(dept_id):
     """Update department details (admin only)."""
     department = db.session.get(Department, dept_id)
     if not department:
-        return jsonify({"error": "Department not found"}), 404
-    data = request.get_json()
+        return api_error("Department not found", 404, code="NOT_FOUND")
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     if "name" in data:
         department.name = data["name"]
@@ -198,13 +198,13 @@ def delete_department(dept_id):
     """Delete a department (admin only)."""
     department = db.session.get(Department, dept_id)
     if not department:
-        return jsonify({"error": "Department not found"}), 404
+        return api_error("Department not found", 404, code="NOT_FOUND")
 
     # Check if department has users or events
     if department.users.count() > 0:
-        return jsonify({"error": "Cannot delete department with users"}), 400
+        return api_error("Cannot delete department with users", 400, code="CONFLICT")
     if department.events.count() > 0:
-        return jsonify({"error": "Cannot delete department with events"}), 400
+        return api_error("Cannot delete department with events", 400, code="CONFLICT")
 
     db.session.delete(department)
     db.session.commit()

@@ -2,8 +2,9 @@ import os
 from functools import wraps
 
 import qrcode
-from flask import jsonify
 from flask_login import current_user
+
+from app.http_utils import api_error
 
 
 def generate_qr_code(event_id, base_url="http://127.0.0.1:5001"):
@@ -36,10 +37,10 @@ def require_role(roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                return jsonify({"error": "Authentication required"}), 401
+                return api_error("Authentication required", 401, code="UNAUTHENTICATED")
 
             if current_user.role not in roles:
-                return jsonify({"error": "Insufficient permissions"}), 403
+                return api_error("Insufficient permissions", 403, code="FORBIDDEN")
 
             return f(*args, **kwargs)
 

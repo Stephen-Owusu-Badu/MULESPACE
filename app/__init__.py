@@ -39,10 +39,12 @@ def create_app(config_name="default"):
     from app.routes.auth import auth_bp
     from app.routes.calendar import calendar_bp
     from app.routes.events import events_bp
+    from app.routes.health import health_bp
     from app.routes.views import views_bp
 
     # Register view routes (HTML templates)
     app.register_blueprint(views_bp)
+    app.register_blueprint(health_bp)
 
     # Register API routes
     app.register_blueprint(auth_bp, url_prefix="/api/auth")

@@ -4,7 +4,9 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from app import db
+from app.http_utils import api_error, parse_iso_datetime, try_parse_iso_datetime
 from app.models import Attendance, Event
+from app.registration import try_register_user_for_event
 
 calendar_bp = Blueprint("calendar", __name__)
 
@@ -20,18 +22,16 @@ def get_calendar_events():
 
     # Parse and apply date filters
     if start_date:
-        try:
-            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            query = query.filter(Event.start_time >= start)
-        except ValueError:
-            return jsonify({"error": "Invalid start date format"}), 400
+        start, err = try_parse_iso_datetime(start_date, "start")
+        if err:
+            return err
+        query = query.filter(Event.start_time >= start)
 
     if end_date:
-        try:
-            end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            query = query.filter(Event.end_time <= end)
-        except ValueError:
-            return jsonify({"error": "Invalid end date format"}), 400
+        end, err = try_parse_iso_datetime(end_date, "end")
+        if err:
+            return err
+        query = query.filter(Event.end_time <= end)
 
     if department_id:
         query = query.filter_by(department_id=department_id)
@@ -61,16 +61,18 @@ def get_calendar_events():
 @calendar_bp.route("/conflicts", methods=["POST"])
 def check_conflicts():
     """Check for scheduling conflicts with other events."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     if not data.get("start_time") or not data.get("end_time"):
-        return jsonify({"error": "Start time and end time required"}), 400
+        return api_error("Start time and end time required", 400, code="MISSING_FIELD")
 
     try:
-        start_time = datetime.fromisoformat(data["start_time"].replace("Z", "+00:00"))
-        end_time = datetime.fromisoformat(data["end_time"].replace("Z", "+00:00"))
-    except ValueError:
-        return jsonify({"error": "Invalid date format"}), 400
+        start_time = parse_iso_datetime(data["start_time"], "start_time")
+        end_time = parse_iso_datetime(data["end_time"], "end_time")
+    except ValueError as e:
+        return api_error(str(e), 400, code="INVALID_DATETIME")
 
     # Find overlapping events
     conflicts = Event.query.filter(
@@ -157,29 +159,27 @@ def get_my_calendar_events():
 @login_required
 def add_to_calendar():
     """Add an event to user's calendar (register for event)."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
+
     event_id = data.get("event_id")
 
     if not event_id:
-        return jsonify({"error": "Event ID required"}), 400
+        return api_error("Event ID required", 400, code="MISSING_FIELD")
 
     event = db.session.get(Event, event_id)
     if not event:
-        return jsonify({"error": "Event not found"}), 404
+        return api_error("Event not found", 404, code="NOT_FOUND")
 
-    # Check if already registered
-    existing = Attendance.query.filter_by(event_id=event_id, user_id=current_user.id).first()
-
-    if existing:
-        return jsonify({"error": "Already added to calendar"}), 409
-
-    # Create attendance record
-    attendance = Attendance(
-        event_id=event_id, user_id=current_user.id, check_in_method="web_registration"
+    _, err = try_register_user_for_event(
+        current_user.id,
+        event,
+        check_in_method="web_registration",
+        duplicate_message="Already added to calendar",
     )
-
-    db.session.add(attendance)
-    db.session.commit()
+    if err:
+        return err
 
     return jsonify({"message": "Event added to calendar"}), 201
 
@@ -191,7 +191,7 @@ def remove_from_calendar(event_id):
     attendance = Attendance.query.filter_by(event_id=event_id, user_id=current_user.id).first()
 
     if not attendance:
-        return jsonify({"error": "Event not in calendar"}), 404
+        return api_error("Event not in calendar", 404, code="NOT_FOUND")
 
     db.session.delete(attendance)
     db.session.commit()

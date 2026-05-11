@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app import db
+from app.http_utils import api_error
 from app.models import Department, User
 
 auth_bp = Blueprint("auth", __name__)
@@ -10,17 +11,23 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/register", methods=["POST"])
 def register():
     """Register a new user."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error(
+            "Expected a JSON object with email, password, and name.",
+            400,
+            code="INVALID_JSON",
+        )
 
     # Validation
     required_fields = ["email", "password", "name"]
     for field in required_fields:
         if not data.get(field):
-            return jsonify({"error": f"Missing required field: {field}"}), 400
+            return api_error(f"Missing required field: {field}", 400, code="MISSING_FIELD")
 
     # Check if user already exists
     if User.query.filter_by(email=data["email"]).first():
-        return jsonify({"error": "Email already registered"}), 409
+        return api_error("Email already registered", 409, code="EMAIL_IN_USE")
 
     # Split name into first and last
     name_parts = data["name"].strip().split(maxsplit=1)
@@ -37,13 +44,13 @@ def register():
         username = f"{base_username}{counter}"
         counter += 1
 
-    # Create new user
+    # Create new user (role is always student; admins promote via admin API)
     user = User(
         email=data["email"],
         username=username,
         first_name=first_name,
         last_name=last_name,
-        role=data.get("role", "student"),
+        role="student",
         department_id=data.get("department_id"),
     )
     user.set_password(data["password"])
@@ -57,18 +64,24 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     """Authenticate user and create session."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error(
+            "Expected a JSON object with email and password.",
+            400,
+            code="INVALID_JSON",
+        )
 
     if not data.get("email") or not data.get("password"):
-        return jsonify({"error": "Email and password required"}), 400
+        return api_error("Email and password required", 400, code="MISSING_FIELD")
 
     user = User.query.filter_by(email=data["email"]).first()
 
     if not user or not user.check_password(data["password"]):
-        return jsonify({"error": "Invalid email or password"}), 401
+        return api_error("Invalid email or password", 401, code="INVALID_CREDENTIALS")
 
     if not user.is_active:
-        return jsonify({"error": "Account is disabled"}), 403
+        return api_error("Account is disabled", 403, code="ACCOUNT_DISABLED")
 
     login_user(user, remember=data.get("remember", False))
 
@@ -95,13 +108,15 @@ def get_current_user():
 @login_required
 def change_password():
     """Change user password."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     if not data.get("old_password") or not data.get("new_password"):
-        return jsonify({"error": "Old and new passwords required"}), 400
+        return api_error("Old and new passwords required", 400, code="MISSING_FIELD")
 
     if not current_user.check_password(data["old_password"]):
-        return jsonify({"error": "Incorrect old password"}), 401
+        return api_error("Incorrect old password", 401, code="INVALID_PASSWORD")
 
     current_user.set_password(data["new_password"])
     db.session.commit()

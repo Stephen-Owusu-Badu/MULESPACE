@@ -45,6 +45,22 @@ class TestAuthRoutes:
         data = response.get_json()
         assert "Email already registered" in data["error"]
 
+    def test_register_ignores_client_supplied_role(self, client, department):
+        """Self-registration must not allow privilege escalation via JSON role."""
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "email": "rolehacker@test.com",
+                "name": "Role Hacker",
+                "password": "password123",
+                "department_id": department.id,
+                "role": "admin",
+            },
+        )
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data["user"]["role"] == "student"
+
     def test_register_duplicate_username_from_email(self, client, student_user, department):
         """Test registration generates unique username when email prefix conflicts."""
         # student_user has username "student" from email "student@test.com"
