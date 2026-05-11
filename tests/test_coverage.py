@@ -168,7 +168,8 @@ class TestAdditionalCoverage:
         )
         assert response.status_code == 400
         data = response.get_json()
-        assert "Invalid start_time format" in data["error"]
+        assert "start_time" in data["error"]
+        assert "Invalid" in data["error"]
 
     def test_delete_attendance_unauthorized_dept_admin(self, app, dept_admin_client, student_user):
         """Test dept admin cannot delete attendance from another department."""
@@ -375,4 +376,4 @@ class TestAdditionalCoverage:
         response = dept_admin_client.delete(f"/api/events/{other_event.id}")
         assert response.status_code == 403
         data = response.get_json()
-        assert "Unauthorized" in data["error"]
+        assert "permission" in data["error"].lower()

@@ -6,7 +6,9 @@ from flask import Blueprint, jsonify, make_response, request
 from flask_login import current_user, login_required
 
 from app import db
+from app.http_utils import api_error, department_admin_event_forbidden, paginated_response
 from app.models import Attendance, Department, Event, User
+from app.registration import try_register_user_for_event
 
 attendance_bp = Blueprint("attendance", __name__)
 
@@ -16,40 +18,26 @@ attendance_bp = Blueprint("attendance", __name__)
 @login_required
 def check_in():
     """Check in a user to an event."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object with event_id.", 400, code="INVALID_JSON")
 
     if not data.get("event_id"):
-        return jsonify({"error": "Event ID required"}), 400
+        return api_error("Event ID required", 400, code="MISSING_FIELD")
 
     event = db.session.get(Event, data["event_id"])
     if not event:
-        return jsonify({"error": "Event not found"}), 404
+        return api_error("Event not found", 404, code="NOT_FOUND")
 
-    # Check if event is active
-    if not event.is_active:
-        return jsonify({"error": "Event is not active"}), 400
-
-    # Check if attendance record exists
-    existing = Attendance.query.filter_by(event_id=event.id, user_id=current_user.id).first()
-
-    if existing:
-        return jsonify({"error": "Already checked in to this event"}), 409
-
-    # Check capacity
-    if event.max_capacity:
-        current_count = Attendance.query.filter_by(event_id=event.id).count()
-        if current_count >= event.max_capacity:
-            return jsonify({"error": "Event is at full capacity"}), 400
-
-    # Create attendance record with check-in
-    attendance = Attendance(
-        event_id=event.id,
-        user_id=current_user.id,
+    attendance, err = try_register_user_for_event(
+        current_user.id,
+        event,
         check_in_method=data.get("check_in_method", "qr_code"),
+        duplicate_message="Already checked in to this event",
+        full_message="Event is at full capacity",
     )
-
-    db.session.add(attendance)
-    db.session.commit()
+    if err:
+        return err
 
     return (
         jsonify({"message": "Checked in successfully", "attendance": attendance.to_dict()}),
@@ -70,17 +58,10 @@ def get_my_attended_events():
         .paginate(page=page, per_page=per_page, error_out=False)
     )
 
-    return (
-        jsonify(
-            {
-                "attendances": [att.to_dict() for att in pagination.items],
-                "total": pagination.total,
-                "page": page,
-                "per_page": per_page,
-                "pages": pagination.pages,
-            }
-        ),
-        200,
+    return paginated_response(
+        "attendances",
+        [att.to_dict() for att in pagination.items],
+        pagination,
     )
 
 
@@ -90,7 +71,7 @@ def get_attendance_status(event_id):
     """Check if current user is checked in to an event."""
     event = db.session.get(Event, event_id)
     if not event:
-        return jsonify({"error": "Event not found"}), 404
+        return api_error("Event not found", 404, code="NOT_FOUND")
 
     attendance = Attendance.query.filter_by(event_id=event_id, user_id=current_user.id).first()
 
@@ -110,16 +91,15 @@ def get_attendance_status(event_id):
 def delete_attendance(attendance_id):
     """Remove an attendance record (admin only)."""
     if current_user.role not in ["admin", "department_admin"]:
-        return jsonify({"error": "Unauthorized"}), 403
+        return api_error("Insufficient permissions to delete attendance.", 403, code="FORBIDDEN")
 
     attendance = db.session.get(Attendance, attendance_id)
     if not attendance:
-        return jsonify({"error": "Attendance not found"}), 404
+        return api_error("Attendance not found", 404, code="NOT_FOUND")
 
-    # Department admins can only delete from their department's events
-    if current_user.role == "department_admin":
-        if attendance.event.department_id != current_user.department_id:
-            return jsonify({"error": "Unauthorized"}), 403
+    forbidden = department_admin_event_forbidden(attendance.event)
+    if forbidden:
+        return forbidden
 
     db.session.delete(attendance)
     db.session.commit()
@@ -133,23 +113,22 @@ def delete_attendance(attendance_id):
 def bulk_check_in():
     """Check in multiple users to an event (admin only)."""
     if current_user.role not in ["admin", "department_admin"]:
-        return jsonify({"error": "Unauthorized"}), 403
+        return api_error("Insufficient permissions for bulk check-in.", 403, code="FORBIDDEN")
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     if not data.get("event_id") or not data.get("user_ids"):
-        return jsonify({"error": "Event ID and user IDs required"}), 400
+        return api_error("Event ID and user IDs required", 400, code="MISSING_FIELD")
 
     event = db.session.get(Event, data["event_id"])
     if not event:
-        return jsonify({"error": "Event not found"}), 404
+        return api_error("Event not found", 404, code="NOT_FOUND")
 
-    # Check permission
-    if (
-        current_user.role == "department_admin"
-        and event.department_id != current_user.department_id
-    ):
-        return jsonify({"error": "Unauthorized"}), 403
+    forbidden = department_admin_event_forbidden(event)
+    if forbidden:
+        return forbidden
 
     user_ids = data["user_ids"]
     results = {"success": [], "errors": []}
@@ -184,25 +163,22 @@ def bulk_check_in():
 @attendance_bp.route("/check-in-form", methods=["POST"])
 def check_in_form():
     """Process check-in form submission (public endpoint for QR code check-ins)."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return api_error("Expected a JSON object in the request body.", 400, code="INVALID_JSON")
 
     required_fields = ["event_id", "full_name", "email", "department_id"]
     for field in required_fields:
         if not data.get(field):
-            return jsonify({"error": f"{field.replace('_', ' ').title()} is required"}), 400
+            return api_error(f"{field.replace('_', ' ').title()} is required", 400, code="MISSING_FIELD")
 
     event = db.session.get(Event, data["event_id"])
     if not event:
-        return jsonify({"error": "Event not found"}), 404
+        return api_error("Event not found", 404, code="NOT_FOUND")
 
     # Check if event is active
     if not event.is_active:
-        return jsonify({"error": "Event is not active"}), 400
-
-    # Check if already checked in with this email
-    # For form submissions, we store data differently
-    # We'll create an attendance record and store form data in a separate table
-    # For now, we'll use the existing Attendance model
+        return api_error("Event is not active", 400, code="EVENT_INACTIVE")
 
     # Try to find user by email
     user = User.query.filter_by(email=data["email"]).first()
@@ -211,14 +187,14 @@ def check_in_form():
         # Existing user - check if already checked in
         existing = Attendance.query.filter_by(event_id=event.id, user_id=user.id).first()
         if existing:
-            return jsonify({"error": "You have already checked in to this event"}), 409
+            return api_error("You have already checked in to this event", 409, code="ALREADY_REGISTERED")
 
         # Create attendance record
         attendance = Attendance(event_id=event.id, user_id=user.id, check_in_method="qr_form")
     else:
         # Guest check-in (no user account) - we'll still record it
         # For now, we'll skip this and require users to have accounts
-        return jsonify({"error": "Please register for an account first"}), 400
+        return api_error("Please register for an account first", 400, code="ACCOUNT_REQUIRED")
 
     db.session.add(attendance)
     db.session.commit()
@@ -231,18 +207,15 @@ def check_in_form():
 def export_attendance(event_id):
     """Export attendance data for an event as CSV (admin only)."""
     if current_user.role not in ["admin", "department_admin"]:
-        return jsonify({"error": "Unauthorized"}), 403
+        return api_error("Insufficient permissions to export attendance.", 403, code="FORBIDDEN")
 
     event = db.session.get(Event, event_id)
     if not event:
-        return jsonify({"error": "Event not found"}), 404
+        return api_error("Event not found", 404, code="NOT_FOUND")
 
-    # Check permission
-    if (
-        current_user.role == "department_admin"
-        and event.department_id != current_user.department_id
-    ):
-        return jsonify({"error": "Unauthorized"}), 403
+    forbidden = department_admin_event_forbidden(event)
+    if forbidden:
+        return forbidden
 
     # Get all attendance records for this event
     attendances = (
